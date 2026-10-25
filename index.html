@@ -177,7 +177,19 @@
       const detailBaseOf = (e) => (e.cat === "jm" || e.cat === "jw") ? SPIELDETAIL_JUGEND : null;
 
       // ---------------- Auswahl-Status ----------------
-      let state = { cat: "h", grp: null, entry: null };
+      // Beim Start: nichts ausgewählt. Falls gespeichert, wird die
+      // letzte Auswahl aus dem localStorage wiederhergestellt
+      // (überlebt Tab schließen & Browser-Neustart, ohne Cookie-Alarm).
+      let state = { cat: null, grp: null, entry: null };
+      const STORE_KEY = "asv-dachau-auswahl-v1";
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+        if (saved && typeof saved === "object") state = saved;
+      } catch (e) { /* ignorieren */ }
+
+      function saveState() {
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* ignorieren */ }
+      }
 
       // ---------------- Views vorbereiten ----------------
       const catRow = document.getElementById("catRow");
@@ -277,15 +289,9 @@
         });
       }
 
-      function grpsOfCat(cat) {
-        const set = [...new Set(CONFIG.filter((e) => e.cat === cat).map((e) => e.grp))];
-        const order = GRP_ORDER[cat];
-        set.sort((a, b) => order ? order.indexOf(a) - order.indexOf(b) : a.localeCompare(b, "de", { numeric: true }));
-        return set;
-      }
-
       function renderGrpRow() {
         grpRow.innerHTML = '<div class="rowlabel">2 · Mannschaft / Altersklasse</div>';
+        if (state.cat === null) return;
         grpsOfCat(state.cat).forEach((g) => {
           grpRow.appendChild(chip(g, state.grp === g, () => {
             state.grp = g;
@@ -297,15 +303,21 @@
 
       function renderEntryRow() {
         entryRow.innerHTML = '<div class="rowlabel">3 · Team / Wettbewerb</div>';
-        const list = CONFIG.filter((e) => e.cat === state.cat && e.grp === state.grp);
-        // Falls nur ein Eintrag: direkt auswählen, keine dritte Reihe nötig
-        list.forEach((e) => {
+        if (state.grp === null) return;
+        CONFIG.filter((e) => e.cat === state.cat && e.grp === state.grp).forEach((e) => {
           const label = e.chip || e.team;
           entryRow.appendChild(chip(label, state.entry === e.idx, () => {
             state.entry = e.idx;
             renderAll();
           }));
         });
+      }
+
+      function grpsOfCat(cat) {
+        const set = [...new Set(CONFIG.filter((e) => e.cat === cat).map((e) => e.grp))];
+        const order = GRP_ORDER[cat];
+        set.sort((a, b) => order ? order.indexOf(a) - order.indexOf(b) : a.localeCompare(b, "de", { numeric: true }));
+        return set;
       }
 
       function showEntry() {
@@ -321,20 +333,33 @@
         if (f.src !== src) f.src = src;
       }
 
-      function renderAll() {
-        // sinnvolle Defaults: erste Gruppe bzw. erster Eintrag
-        if (state.grp === null || !grpsOfCat(state.cat).includes(state.grp)) {
-          state.grp = grpsOfCat(state.cat)[0];
-          state.entry = null;
+      // Platzhalter, wenn noch nichts ausgewählt ist
+      function renderPlaceholder() {
+        let ph = document.getElementById("placeholder");
+        if (!ph) {
+          ph = document.createElement("div");
+          ph.id = "placeholder";
+          ph.className = "card";
+          ph.style.display = "none";
+          ph.innerHTML = '👋 Bitte wähle oben <b>Bereich</b> → <b>Mannschaft/Altersklasse</b> → <b>Team</b>, um Spielplan, Live-Ticker und Tabelle anzuzeigen.';
+          teamview.appendChild(ph);
         }
-        if (state.entry === null) {
-          const first = CONFIG.findIndex((e) => e.cat === state.cat && e.grp === state.grp);
-          state.entry = first;
+        ph.style.display = state.entry === null ? "block" : "none";
+      }
+
+      function renderAll() {
+        // Gespeicherte Auswahl validieren: existiert der Eintrag noch?
+        if (state.entry !== null && !CONFIG[state.entry]) { state.entry = null; state.grp = null; state.cat = null; }
+        if (state.entry !== null) {
+          const e = CONFIG[state.entry];
+          if (e.cat !== state.cat || e.grp !== state.grp) { state.entry = null; }
         }
         renderCatRow();
         renderGrpRow();
         renderEntryRow();
         showEntry();
+        renderPlaceholder();
+        saveState();
       }
       renderAll();
 
