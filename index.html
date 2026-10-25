@@ -78,17 +78,37 @@
       kein manuelles Eintragen nötig.
     </p>
 
+    <details id="debug-box" style="margin-top:1.5rem; background:#fff; border:1px dashed #9ca3af; border-radius:8px; padding:.75rem;">
+      <summary style="cursor:pointer; font-weight:600; font-size:.85rem;">🔧 Debug-Ausgabe (wird später wieder entfernt)</summary>
+      <p style="font-size:.75rem; color:#6b7280;">Unten steht, was die BVV-Schnittstelle geliefert hat. Für einen Screenshot/das Kopieren einfach aufklappen.</p>
+      <textarea id="debug-out" readonly style="width:100%; height:220px; font-size:.7rem; font-family:monospace;"></textarea>
+    </details>
+
     <!-- ================================================================
          WICHTIG: Eigene Team-Panels nach demselben Muster ergänzen:
          Wettbewerb-Id und Team-Id aus dem BVV-Portal (Hallenergebnisse)
-         kopieren, Button in der Tab-Leiste ergänzen. Ganz unten bei
-         CONFIG steht nichts – die IDs stehen direkt in den divs oben.
+         kopieren, Button in der Tab-Leiste ergänzen.
          ================================================================ -->
 
     <!-- BVV-Schnittstelle: HIER DEINEN API-KEY EINFÜGEN -->
     <script src="https://api.volleyball-bayern.de/jsi/volley.js.php?key=ff8671c3-ef58-433d-93c5-0f1e580c4347"></script>
 
     <script>
+      // Debug: Inhalt der gefüllten Container plus alle Links/Datenattribute
+      // einsammeln, sobald die BVV-Schnittstelle fertig ist (mehrfach prüfen)
+      function dumpDebug() {
+        const parts = [];
+        document.querySelectorAll(".vapi").forEach((el, i) => {
+          parts.push("=== Container " + (i + 1) + " ===");
+          parts.push("innerHTML: " + el.innerHTML);
+        });
+        const out = document.getElementById("debug-out");
+        if (out) out.value = parts.join("\n\n").slice(0, 50000);
+      }
+      // 3 s und 8 s nach Laden prüfen (Skript füllt asynchron)
+      setTimeout(dumpDebug, 3000);
+      setTimeout(dumpDebug, 8000);
+
       // Tab-Umschaltung (nur Anzeige, beide Container bleiben im DOM,
       // damit die BVV-Skript-Inhalte beim Laden gefüllt werden)
       const tabs = document.querySelectorAll(".tab");
