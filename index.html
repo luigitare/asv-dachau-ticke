@@ -8,8 +8,32 @@
       :root { font-family: Inter, system-ui, -apple-system, sans-serif; color: #111827; background: #f4f6f8; }
       * { box-sizing: border-box; }
       body { margin: 0; padding: .75rem; }
-      header { display: flex; align-items: center; gap: .6rem; margin-bottom: 1rem; white-space: nowrap; }
-      .logo { height: 46px; width: auto; flex-shrink: 0; display: block; }
+      .topbar { position: relative; z-index: 100; }
+      .topbar header { position: relative; display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; white-space: nowrap; }
+      .tabbarRow { margin-bottom: .5rem; }
+      .logo { height: 40px; width: auto; flex-shrink: 0; display: block; }
+      .mpSep { border-top: 1px solid #e5e7eb; margin: .7rem 0 .2rem; }
+      .rowlabel2 { font-size: .65rem; color: #9ca3af; text-transform: uppercase; letter-spacing: .06em; margin: .2rem 0 .35rem; }
+
+      /* Mittiger Menü-Knopf, Menü blendet ÜBER den Inhalt */
+      .menubtn {
+        position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        border: 1px solid #d1d5db; background: #fff; border-radius: 999px;
+        padding: .45rem 1.1rem; font-size: .85rem; font-weight: 600; cursor: pointer;
+        display: flex; align-items: center; gap: .4rem;
+      }
+      .menubtn.open { background: #eff6ff; border-color: #2563eb; }
+      .menupanel {
+        position: absolute; top: calc(100% - .2rem); left: 0; right: 0;
+        opacity: 0; transform: translateY(-6px); pointer-events: none;
+        transition: opacity .2s ease, transform .2s ease;
+      }
+      .menupanel.open { opacity: 1; transform: none; pointer-events: auto; }
+      .menupanel .card {
+        padding: .8rem; border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,.18);
+        max-height: 75vh; overflow-y: auto;
+      }
       h1 { font-size: .95rem; margin: 0; display: inline; }
       .sub { color: #6b7280; font-size: .78rem; margin-left: .35rem; }
 
@@ -21,23 +45,11 @@
       }
       .chip.active { background: #1e3a8a; border-color: #1e3a8a; color: #fff; }
 
-      /* Auswahl: eine Zeile mit 3 Knöpfen + aufklappende Optionen */
-      .selrow { display: flex; gap: .4rem; margin-bottom: .4rem; }
-      .selchip {
-        flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center;
-        border: 1px solid #d1d5db; background: #fff; border-radius: 10px;
-        padding: .3rem .4rem; font-size: .8rem; cursor: pointer;
-      }
-      .selchip .lvl { font-size: .6rem; color: #9ca3af; text-transform: uppercase; letter-spacing: .05em; }
-      .selchip .val { font-weight: 600; color: #1e3a8a; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .selchip.empty .val { color: #c3cbd6; font-weight: 400; }
-      .selchip.open { background: #eff6ff; border-color: #2563eb; }
-      .selchip:disabled { opacity: .45; cursor: default; }
-
       .panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .28s ease; }
       .panel.open { grid-template-rows: 1fr; }
       .panel > div { overflow: hidden; }
       .panel .filterrow { margin: 0 0 .4rem; padding-top: .1rem; }
+
 
       .teamview { margin-top: .75rem; }
       .teamtitle { font-size: 1rem; font-weight: 700; margin: .25rem 0 .5rem; }
@@ -89,17 +101,29 @@
     </style>
   </head>
   <body>
-    <header>
-      <!-- Original-Vereinslogo, liegt im Repository neben der index.html -->
-      <img class="logo" src="logo_c.svg" alt="ASV Dachau Volleys" />
-      <div>
-        <h1>ASV Dachau Volleyball</h1><span class="sub">· Spielplan &amp; Live-Ticker</span>
-      </div>
-    </header>
+    <div class="topbar">
+      <header>
+        <!-- Original-Vereinslogo, liegt im Repository neben der index.html -->
+        <img class="logo" src="logo_c.svg" alt="ASV Dachau Volleys" />
+        <button class="menubtn" id="menuBtn">☰ <span id="menuBtnLabel">Menü</span></button>
+      </header>
 
-    <!-- Auswahl: eine Zeile mit 3 Knöpfen, Optionen klappen darunter auf -->
-    <div class="selrow" id="selRow"></div>
-    <div class="panel" id="panel"><div><div class="filterrow" id="optRow"></div></div></div>
+      <!-- Menü als Overlay: blendet ÜBER den Inhalt -->
+      <div class="menupanel" id="menuPanel">
+        <div class="card">
+          <div class="rowlabel2">Mannschaft</div>
+          <!-- Stufe 1: Kategorie -->
+          <div class="filterrow" id="catRow"></div>
+          <!-- Stufe 2: Mannschaft / Altersklasse -->
+          <div class="filterrow" id="grpRow"></div>
+          <!-- Stufe 3: konkretes Team / Wettbewerb -->
+          <div class="filterrow" id="entryRow"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ansicht-Umschalter: immer sichtbar über dem Inhalt -->
+    <div class="filterrow tabbarRow" id="tabRow"></div>
 
     <div class="teamview" id="teamview"></div>
 
@@ -267,13 +291,7 @@
         el.className = "entry";
         el.id = "entry-" + i;
         el.innerHTML = `
-          <div class="teamtitle"></div>
-          <div class="tabbar">
-            <button class="tabbtn active" data-pane="e-${i}-ticker">Live-Ticker</button>
-            <button class="tabbtn" data-pane="e-${i}-spiele">Spielplan</button>
-            <button class="tabbtn" data-pane="e-${i}-tabelle">Tabelle</button>
-          </div>
-          <div class="tabpane active" id="e-${i}-ticker">
+          <div class="tabpane" id="e-${i}-ticker">
             <div class="card wide">
               <div class="tickerhead">
                 <span style="font-size:.82rem; color:#6b7280;">BVV Live-Ticker</span>
@@ -315,16 +333,13 @@
         teamview.appendChild(el);
         t.el = el;
 
-        el.querySelector(".teamtitle").textContent = t.team + " – " + t.league;
-
-        el.querySelectorAll(".tabbtn").forEach((btn) => {
-          btn.onclick = () => {
-            el.querySelectorAll(".tabbtn").forEach((x) => x.classList.remove("active"));
-            btn.classList.add("active");
-            el.querySelectorAll(".tabpane").forEach((p) => p.classList.remove("active"));
-            document.getElementById(btn.dataset.pane).classList.add("active");
-          };
-        });
+        // Klick außerhalb des Menüs schließt das Overlay
+      document.addEventListener("click", (ev) => {
+        if (!menuOpen) return;
+        if (menuPanel.contains(ev.target) || menuBtn.contains(ev.target)) return;
+        menuOpen = false;
+        renderAll();
+      });
 
         el.querySelector(".refresh").onclick = () => {
           const f = el.querySelector(".ticker-frame");
@@ -376,18 +391,27 @@
         .replace("ASV Dachau II", "ASV II")
         .replace("ASV Dachau", "ASV I");
 
-      // ---------------- Auswahl: 1 Zeile, 3 Knöpfe + aufklappbare Optionen ----------------
-      // openLevel: null = zu, 1 = Bereich offen, 2 = Altersklasse offen, 3 = Team offen
-      let openLevel = state.entry === null ? (state.cat === null ? 1 : 3) : null;
-      const selRow = document.getElementById("selRow");
-      const panel = document.getElementById("panel");
-      const optRow = document.getElementById("optRow");
+      // ---------------- Auswahl: klassische Chip-Reihen im Menü ----------------
+      const menuBtn = document.getElementById("menuBtn");
+      const menuBtnLabel = document.getElementById("menuBtnLabel");
+      const menuPanel = document.getElementById("menuPanel");
+      const tabRow = document.getElementById("tabRow");
+      // Menü beim ersten Besuch ohne Auswahl automatisch öffnen
+      let menuOpen = state.entry === null;
+      menuBtn.onclick = () => { menuOpen = !menuOpen; renderAll(); };
+      const catRow = document.getElementById("catRow");
+      const grpRow = document.getElementById("grpRow");
+      const entryRow = document.getElementById("entryRow");
 
       function chip(label, active, onclick) {
         const b = document.createElement("button");
         b.className = "chip" + (active ? " active" : "");
         b.textContent = label;
-        b.onclick = onclick;
+        // stopPropagation: Klicks im Menür dürfen nie als "außerhalb"
+        // gewertet werden (das Overlay-Karten-Innere wird bei jedem
+        // Klick neu gerendert, sonst würde das Menü scheinbar willkürlich
+        // zugehen)
+        b.onclick = (ev) => { ev.stopPropagation(); onclick(); };
         return b;
       }
 
@@ -398,70 +422,44 @@
         return set;
       }
 
-      function currentEntryLabel() {
-        if (state.entry === null) return null;
-        const e = CONFIG[state.entry];
-        return e.chip || shortLabel(e.team);
+      function renderCatRow() {
+        catRow.innerHTML = '<div class="rowlabel">1 · Bereich</div>';
+        CATS.forEach((c) => {
+          catRow.appendChild(chip(c.label, state.cat === c.id, () => {
+            state.cat = c.id;
+            const g = state.lastGrpByCat[c.id];
+            state.grp = (g && grpsOfCat(c.id).includes(g)) ? g : null;
+            state.entry = state.grp !== null ? (state.lastEntryByGrp[c.id + "|" + state.grp] ?? null) : null;
+            renderAll();
+          }));
+        });
       }
 
-      function selBtn(lvlLabel, value, isOpen, disabled, onclick) {
-        const b = document.createElement("button");
-        b.className = "selchip" + (isOpen ? " open" : "") + (value ? "" : " empty");
-        b.disabled = !!disabled;
-        b.innerHTML = '<span class="lvl">' + lvlLabel + '</span><span class="val">' + (value || "—") + '</span>';
-        b.onclick = onclick;
-        return b;
+      function renderGrpRow() {
+        grpRow.innerHTML = '<div class="rowlabel">2 · Mannschaft / Altersklasse</div>';
+        if (state.cat === null) return;
+        grpsOfCat(state.cat).forEach((g) => {
+          grpRow.appendChild(chip(g, state.grp === g, () => {
+            state.grp = g;
+            rememberGrp(state.cat, g);
+            state.entry = state.lastEntryByGrp[state.cat + "|" + g] ?? null;
+            renderAll();
+          }));
+        });
       }
 
-      function renderSelRow() {
-        const catLabel = state.cat ? CATS.find((c) => c.id === state.cat).label : null;
-        const entryLabel = currentEntryLabel();
-        selRow.innerHTML = "";
-        selRow.appendChild(selBtn("Bereich", catLabel, openLevel === 1, false,
-          () => { openLevel = openLevel === 1 ? null : 1; renderAll(); }));
-        selRow.appendChild(selBtn("Mannschaft", state.grp, openLevel === 2, state.cat === null,
-          () => { openLevel = openLevel === 2 ? null : 2; renderAll(); }));
-        selRow.appendChild(selBtn("Team", entryLabel, openLevel === 3, state.grp === null,
-          () => { openLevel = openLevel === 3 ? null : 3; renderAll(); }));
-      }
-
-      function renderOptions() {
-        optRow.innerHTML = "";
-        if (openLevel === null) { panel.classList.remove("open"); return; }
-        panel.classList.add("open");
-        if (openLevel === 1) {
-          CATS.forEach((c) => {
-            optRow.appendChild(chip(c.label, state.cat === c.id, () => {
-              state.cat = c.id;
-              const g = state.lastGrpByCat[c.id];
-              state.grp = (g && grpsOfCat(c.id).includes(g)) ? g : null;
-              state.entry = state.grp !== null ? (state.lastEntryByGrp[c.id + "|" + state.grp] ?? null) : null;
-              // nächste Stufe öffnen (oder zu, wenn Team schon wiederhergestellt)
-              openLevel = state.entry !== null ? null : 2;
-              renderAll();
-            }));
-          });
-        } else if (openLevel === 2) {
-          grpsOfCat(state.cat).forEach((g) => {
-            optRow.appendChild(chip(g, state.grp === g, () => {
-              state.grp = g;
-              rememberGrp(state.cat, g);
-              state.entry = state.lastEntryByGrp[state.cat + "|" + g] ?? null;
-              openLevel = state.entry !== null ? null : 3; // Team direkt öffnen falls noch keins gemerkt
-              renderAll();
-            }));
-          });
-        } else if (openLevel === 3) {
-          CONFIG.filter((e) => e.cat === state.cat && e.grp === state.grp).forEach((e) => {
-            const label = e.chip || shortLabel(e.team);
-            optRow.appendChild(chip(label, state.entry === e.idx, () => {
-              state.entry = e.idx;
-              rememberEntry(state.cat, state.grp, e.idx);
-              openLevel = null; // Auswahl fertig -> zuklappen
-              renderAll();
-            }));
-          });
-        }
+      function renderEntryRow() {
+        entryRow.innerHTML = '<div class="rowlabel">3 · Team / Wettbewerb</div>';
+        if (state.grp === null) return;
+        CONFIG.filter((e) => e.cat === state.cat && e.grp === state.grp).forEach((e) => {
+          const label = e.chip || shortLabel(e.team);
+          entryRow.appendChild(chip(label, state.entry === e.idx, () => {
+            state.entry = e.idx;
+            rememberEntry(state.cat, state.grp, e.idx);
+            menuOpen = false; // Auswahl fertig -> Menü zuklappen
+            renderAll();
+          }));
+        });
       }
 
       function grpsOfCat(cat) {
@@ -476,6 +474,10 @@
         if (state.entry === null) return;
         const t = CONFIG[state.entry];
         t.el.classList.add("active");
+        // Aktive Ansicht (Tab) gemäß globaler Auswahl setzen
+        t.el.querySelectorAll(".tabpane").forEach((p) => p.classList.remove("active"));
+        const pane = t.el.querySelector("#e-" + t.idx + "-" + (state.tab || "ticker"));
+        if (pane) pane.classList.add("active");
         // Ticker-iframe lazy laden (nur beim ersten Anzeigen) und beim
         // Teamwechsel frische Daten holen; Ziel = angepinntes Spiel
         // oder Liga-Ansicht
@@ -487,6 +489,25 @@
         t.el.querySelector(".fallback-link").href = src;
       }
 
+      // Ansicht-Chips (Live-Ticker / Spielplan / Tabelle) im Menü
+      const TABS = [
+        { id: "ticker", label: "📡 Live-Ticker" },
+        { id: "spiele", label: "📅 Spielplan" },
+        { id: "tabelle", label: "📊 Tabelle" },
+      ];
+      function renderTabRow() {
+        tabRow.innerHTML = "";
+        if (!state.tab) state.tab = "ticker";
+        TABS.forEach((tb) => {
+          tabRow.appendChild(chip(tb.label, state.tab === tb.id, () => {
+            state.tab = tb.id;
+            showEntry();
+            saveState();
+            renderAll();
+          }));
+        });
+      }
+
       // Platzhalter, wenn noch nichts ausgewählt ist
       function renderPlaceholder() {
         let ph = document.getElementById("placeholder");
@@ -495,7 +516,7 @@
           ph.id = "placeholder";
           ph.className = "card";
           ph.style.display = "none";
-          ph.innerHTML = '👋 Bitte wähle oben <b>Bereich</b> → <b>Mannschaft/Altersklasse</b> → <b>Team</b>, um Spielplan, Live-Ticker und Tabelle anzuzeigen.';
+          ph.innerHTML = '👋 Tippe oben auf <b>☰ Menü</b> und wähle deine Mannschaft – Live-Ticker, Spielplan und Tabelle erscheinen sofort.';
           teamview.appendChild(ph);
         }
         ph.style.display = state.entry === null ? "block" : "none";
@@ -503,13 +524,26 @@
 
       function renderAll() {
         // Gespeicherte Auswahl validieren: existiert der Eintrag noch?
-        if (state.entry !== null && !CONFIG[state.entry]) { state.entry = null; state.grp = null; state.cat = null; openLevel = 1; }
+        if (state.entry !== null && !CONFIG[state.entry]) { state.entry = null; state.grp = null; state.cat = null; menuOpen = true; }
         if (state.entry !== null) {
           const e = CONFIG[state.entry];
           if (e.cat !== state.cat || e.grp !== state.grp) { state.entry = null; }
         }
-        renderSelRow();
-        renderOptions();
+        // Menü-Knopf: zeigt die aktuelle Auswahl, damit man sie ohne
+        // Öffnen immer sieht
+        if (state.entry !== null) {
+          const e = CONFIG[state.entry];
+          menuBtnLabel.textContent = (state.grp || "") + " · " + (e.chip || shortLabel(e.team));
+        } else {
+          menuBtnLabel.textContent = "Menü";
+        }
+        menuBtn.classList.toggle("open", menuOpen);
+        menuPanel.classList.toggle("open", menuOpen);
+        tabRow.style.display = state.entry !== null ? "flex" : "none";
+        renderCatRow();
+        renderGrpRow();
+        renderEntryRow();
+        renderTabRow();
         showEntry();
         renderPlaceholder();
         saveState();
