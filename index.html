@@ -17,14 +17,34 @@
       }
       h1 { font-size: 1.15rem; margin: 0; }
       .sub { color: #6b7280; font-size: .85rem; }
-      .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; overflow-x: auto; margin-bottom: 1rem; }
-      .card h2 { font-size: 1rem; margin: 0 0 .75rem; }
+
+      /* Mannschafts-Auswahl */
+      .teambar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+      .teambtn {
+        border: 1px solid #d1d5db; background: #fff; border-radius: 999px;
+        padding: .45rem 1rem; font-size: .9rem; cursor: pointer;
+      }
+      .teambtn.active { background: #1e3a8a; border-color: #1e3a8a; color: #fff; }
+
+      /* Unter-Tabs pro Mannschaft */
+      .tabbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+      .tabbtn {
+        border: 1px solid #d1d5db; background: #fff; border-radius: 8px;
+        padding: .4rem .9rem; font-size: .85rem; cursor: pointer;
+      }
+      .tabbtn.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+
+      .team { display: none; }
+      .team.active { display: block; }
+      .tabpane { display: none; }
+      .tabpane.active { display: block; }
+      .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; overflow-x: auto; }
       .ticker-frame { width: 100%; height: 640px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
       .fallback { margin-top: .6rem; font-size: .82rem; color: #6b7280; display: none; }
       .fallback a { color: #1e3a8a; }
       .note { font-size: .78rem; color: #9ca3af; margin-top: 1rem; }
 
-      /* styling, das die Schnittstelle in die Tabellen schreibt */
+      /* styling, das die BVV-Schnittstelle in die Tabellen schreibt */
       .vapi table { border-collapse: collapse; width: 100%; font-size: .85rem; }
       .vapi th, .vapi td { border: 1px solid #e5e7eb; padding: .35rem .5rem; text-align: left; white-space: nowrap; }
       .vapi th { background: #f1f5f9; }
@@ -37,68 +57,146 @@
       <div class="logo">ASV</div>
       <div>
         <h1>ASV Dachau Volleyball – Spielplan &amp; Live-Ticker</h1>
-        <div class="sub">U16 weiblich – Daten automatisch vom BVV-Ergebnisdienst</div>
+        <div class="sub">Daten automatisch vom BVV-Ergebnisdienst</div>
       </div>
     </header>
 
-    <!-- ================= Spielplan U16 weiblich ================= -->
-    <div class="card">
-      <h2>Spielplan – U16 Bezirksliga weiblich (ASV Dachau II)</h2>
-      <div class="vapi"
-           data-wettbewerb="c7a7d183-b089-47c4-a0b8-cf7c625acf4a"
-           data-typ="spiele"
-           data-vapi-teams="[9d1d1f61-f8a9-4119-a96f-5db53f20c8e4]"
-           data-vapi-teamfilter="[9d1d1f61-f8a9-4119-a96f-5db53f20c8e4]"
-           data-vapi-heimspielkennzeichen="(H)">
-      </div>
-    </div>
-
-    <!-- ================= Live-Ticker U16 weiblich =================
-         Die Matchseries-UUID ist identisch mit der Wettbewerbs-Id aus
-         dem BVV-Portal (Hallenergebnisse) – die URL entsteht also
-         automatisch: bvv.sams-ticker.de/matchseries/<WETTBEWERB-ID> -->
-    <div class="card">
-      <h2>Live-Ticker – U16 Bezirksliga weiblich</h2>
-      <iframe class="ticker-frame" id="tickerFrame"
-              src="https://bvv.sams-ticker.de/matchseries/c7a7d183-b089-47c4-a0b8-cf7c625acf4a"
-              title="BVV Live-Ticker"
-              allow="fullscreen"></iframe>
-      <p class="fallback" id="tickerFallback">
-        Der Ticker lässt sich hier nicht direkt einbetten –
-        <a id="tickerLink" href="https://bvv.sams-ticker.de/matchseries/c7a7d183-b089-47c4-a0b8-cf7c625acf4a" target="_blank" rel="noopener">hier in einem neuen Tab öffnen ↗</a>
-      </p>
-    </div>
+    <div class="teambar" id="teambar"></div>
+    <div id="teams"></div>
 
     <p class="note">
-      Datenquelle Spielplan: BVV-Ergebnisschnittstelle (api.volleyball-bayern.de).
+      Datenquelle: BVV-Ergebnisschnittstelle (api.volleyball-bayern.de) ·
       Live-Ticker: bvv.sams-ticker.de (Matchseries-UUID = Wettbewerbs-Id aus dem BVV-Portal).
     </p>
 
-    <!-- BVV-Schnittstelle -->
-    <script src="https://api.volleyball-bayern.de/jsi/volley.js.php?key=ff8671c3-ef58-433d-93c5-0f1e580c4347"></script>
-
     <script>
-      // Fallback erkennen: Wenn der Ticker das Einbetten sperrt
-      // (X-Frame-Options), nach 5 Sekunden den Hinweis einblenden.
-      setTimeout(() => {
-        const f = document.getElementById("tickerFrame");
-        try {
-          // Bei blockierter Einbettung bleibt das iframe leer/inaccessible
-          if (!f || f.contentWindow === null) {
-            document.getElementById("tickerFallback").style.display = "block";
-          }
-        } catch (e) {
-          // Zugriff auf contentWindow wirft bei Sperrung -> Fallback zeigen
-          document.getElementById("tickerFallback").style.display = "block";
-        }
-      }, 5000);
+      // ================================================================
+      // KONFIGURATION – pro Mannschaft ein Eintrag.
+      // Wettbewerb-Id + Team-Id: BVV-Portal -> Vereinshomepage ->
+      // Hallenergebnisse. Die Matchseries-URL des Tickers ergibt sich
+      // automatisch aus der Wettbewerb-Id.
+      // ================================================================
+      const CONFIG = [
+        {
+          name: "U16 weiblich",
+          league: "U16 Bezirksliga weiblich",
+          wettbewerb: "c7a7d183-b089-47c4-a0b8-cf7c625acf4a",
+          teamId: "9d1d1f61-f8a9-4119-a96f-5db53f20c8e4",
+        },
+        // Weitere Teams einfach ergänzen, z.B.:
+        // {
+        //   name: "Damen 1",
+        //   league: "Landesliga weiblich",
+        //   wettbewerb: "....-....",
+        //   teamId: "....-....",
+        // },
+      ];
 
-      // ================================================================
-      // WEITERE TEAMS: einfach den Spielplan-Block kopieren, neue
-      // Wettbewerb-Id + Team-Id aus dem BVV-Portal einsetzen,
-      // und beim Ticker-iframe die Matchseries-URL nach dem Muster
-      // https://bvv.sams-ticker.de/matchseries/<WETTBEWERB-ID> anpassen.
-      // ================================================================
+      const TICKER_BASE = "https://bvv.sams-ticker.de/matchseries/";
+
+      // ---------- UI aus der Konfiguration bauen ----------
+      const teambar = document.getElementById("teambar");
+      const teamsRoot = document.getElementById("teams");
+
+      CONFIG.forEach((t, ti) => {
+        // Mannschafts-Button
+        const b = document.createElement("button");
+        b.className = "teambtn" + (ti === 0 ? " active" : "");
+        b.textContent = t.name;
+        b.dataset.team = "team-" + ti;
+        b.onclick = () => selectTeam(b);
+        teambar.appendChild(b);
+
+        // Mannschafts-Container mit 3 Unter-Tabs
+        const wrap = document.createElement("div");
+        wrap.className = "team" + (ti === 0 ? " active" : "");
+        wrap.id = "team-" + ti;
+
+        const tabs = document.createElement("div");
+        tabs.className = "tabbar";
+        tabs.innerHTML = `
+          <button class="tabbtn active" data-pane="t-${ti}-ticker">Live-Ticker</button>
+          <button class="tabbtn" data-pane="t-${ti}-spiele">Spielplan</button>
+          <button class="tabbtn" data-pane="t-${ti}-tabelle">Tabelle</button>`;
+        wrap.appendChild(tabs);
+
+        // --- Tab 1: Live-Ticker (iframe, Matchseries-URL aus Wettbewerb-Id) ---
+        const tickerPane = document.createElement("div");
+        tickerPane.className = "tabpane active";
+        tickerPane.id = "t-" + ti + "-ticker";
+        tickerPane.innerHTML = `
+          <div class="card">
+            <iframe class="ticker-frame"
+                    src="${TICKER_BASE}${t.wettbewerb}"
+                    title="BVV Live-Ticker ${t.league}"
+                    allow="fullscreen"></iframe>
+            <p class="fallback">
+              Der Ticker lässt sich hier nicht direkt einbetten –
+              <a href="${TICKER_BASE}${t.wettbewerb}" target="_blank" rel="noopener">hier in einem neuen Tab öffnen ↗</a>
+            </p>
+          </div>`;
+        wrap.appendChild(tickerPane);
+
+        // --- Tab 2: Spielplan (nur eigene Spiele, gefiltert auf Team-Id) ---
+        const spielePane = document.createElement("div");
+        spielePane.className = "tabpane";
+        spielePane.id = "t-" + ti + "-spiele";
+        spielePane.innerHTML = `
+          <div class="card">
+            <div class="vapi"
+                 data-wettbewerb="${t.wettbewerb}"
+                 data-typ="spiele"
+                 data-vapi-teams="[${t.teamId}]"
+                 data-vapi-teamfilter="[${t.teamId}]"
+                 data-vapi-heimspielkennzeichen="(H)">
+            </div>
+          </div>`;
+        wrap.appendChild(spielePane);
+
+        // --- Tab 3: Tabelle (eigenes Team farblich markiert) ---
+        const tabPane = document.createElement("div");
+        tabPane.className = "tabpane";
+        tabPane.id = "t-" + ti + "-tabelle";
+        tabPane.innerHTML = `
+          <div class="card">
+            <div class="vapi"
+                 data-wettbewerb="${t.wettbewerb}"
+                 data-typ="tabelle"
+                 data-vapi-teams="[${t.teamId}]">
+            </div>
+          </div>`;
+        wrap.appendChild(tabPane);
+
+        // Unter-Tabs umschalten
+        tabs.querySelectorAll(".tabbtn").forEach((btn) => {
+          btn.onclick = () => {
+            tabs.querySelectorAll(".tabbtn").forEach((x) => x.classList.remove("active"));
+            btn.classList.add("active");
+            wrap.querySelectorAll(".tabpane").forEach((p) => p.classList.remove("active"));
+            document.getElementById(btn.dataset.pane).classList.add("active");
+          };
+        });
+
+        teamsRoot.appendChild(wrap);
+      });
+
+      function selectTeam(btn) {
+        document.querySelectorAll(".teambtn").forEach((x) => x.classList.remove("active"));
+        btn.classList.add("active");
+        document.querySelectorAll(".team").forEach((p) => p.classList.remove("active"));
+        document.getElementById(btn.dataset.team).classList.add("active");
+      }
+
+      // Fallback erkennen: Wenn der Ticker das Einbetten sperrt
+      setTimeout(() => {
+        document.querySelectorAll(".ticker-frame").forEach((f) => {
+          try { if (f.contentWindow === null) f.parentElement.querySelector(".fallback").style.display = "block"; }
+          catch (e) { f.parentElement.querySelector(".fallback").style.display = "block"; }
+        });
+      }, 5000);
     </script>
+
+    <!-- BVV-Schnittstelle: füllt alle .vapi-Container automatisch -->
+    <script src="https://api.volleyball-bayern.de/jsi/volley.js.php?key=ff8671c3-ef58-433d-93c5-0f1e580c4347"></script>
   </body>
 </html>
