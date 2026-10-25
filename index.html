@@ -7,16 +7,16 @@
     <style>
       :root { font-family: Inter, system-ui, -apple-system, sans-serif; color: #111827; background: #f4f6f8; }
       * { box-sizing: border-box; }
-      body { margin: 0; padding: 1rem; }
-      header { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+      body { margin: 0; padding: .75rem; }
+      header { display: flex; align-items: center; gap: .6rem; margin-bottom: 1rem; white-space: nowrap; }
       .logo {
-        width: 42px; height: 42px; border-radius: 50%;
+        width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
         background: linear-gradient(135deg, #1e3a8a, #3b82f6);
         color: #fff; display: flex; align-items: center; justify-content: center;
-        font-weight: 700; font-size: .8rem;
+        font-weight: 700; font-size: .75rem;
       }
-      h1 { font-size: 1.15rem; margin: 0; }
-      .sub { color: #6b7280; font-size: .85rem; }
+      h1 { font-size: .95rem; margin: 0; display: inline; }
+      .sub { color: #6b7280; font-size: .78rem; margin-left: .35rem; }
 
       .filterrow { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .5rem; align-items: center; }
       .filterrow .rowlabel { font-size: .72rem; color: #9ca3af; width: 100%; }
@@ -42,12 +42,13 @@
       .tabpane { display: none; }
       .tabpane.active { display: block; }
       .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; overflow-x: auto; }
-      .tickerhead { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
+      .card.wide { border-radius: 10px; padding: .4rem; overflow: visible; }
+      .tickerhead { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; padding: 0 .25rem; }
       .tickerhead .refresh {
         border: 1px solid #d1d5db; background: #fff; border-radius: 8px;
         padding: .3rem .6rem; font-size: .78rem; cursor: pointer;
       }
-      .ticker-frame { width: 100%; height: 640px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
+      .ticker-frame { width: 100%; height: 640px; border: none; background: #fff; }
       .fallback { margin-top: .6rem; font-size: .82rem; color: #6b7280; display: none; }
       .fallback a { color: #1e3a8a; }
       .note { font-size: .78rem; color: #9ca3af; margin-top: 1rem; }
@@ -68,8 +69,7 @@
     <header>
       <div class="logo">ASV</div>
       <div>
-        <h1>ASV Dachau Volleyball – Spielplan &amp; Live-Ticker</h1>
-        <div class="sub">Daten automatisch vom BVV-Ergebnisdienst</div>
+        <h1>ASV Dachau Volleyball</h1><span class="sub">· Spielplan &amp; Live-Ticker</span>
       </div>
     </header>
 
@@ -96,12 +96,12 @@
       // ================================================================
       const CONFIG = [
         // ---------------- HERREN ----------------
-        { cat: "h", grp: "Herren 1", team: "ASV Dachau", league: "2. Bundesliga Süd Männer", wettbewerb: "0aef379f-c42c-46a4-95e0-60ea4d7ba214", teamId: "82ec9fd4-c66d-4149-ac4d-dc1a33486b13" },
-        { cat: "h", grp: "Herren 1", team: "ASV Dachau", league: "Pokalrunde Südbayern West Männer", wettbewerb: "b79976b3-1dc7-4c14-a965-9d713b5f2f61", teamId: "dd1a629b-25c8-4172-be66-8d3f20864f28" },
-        { cat: "h", grp: "Herren 1", team: "ASV Dachau", league: "Landespokal Männer", wettbewerb: "12236641-a81f-4605-8e7f-020185161193", teamId: "688e4da0-f221-4985-9511-39f9f43ab8a1" },
+        { cat: "h", grp: "Herren 1", team: "ASV Dachau", league: "2. Bundesliga Süd Männer", chip: "2. Bundesliga", wettbewerb: "0aef379f-c42c-46a4-95e0-60ea4d7ba214", teamId: "82ec9fd4-c66d-4149-ac4d-dc1a33486b13" },
+        { cat: "h", grp: "Herren 1", team: "ASV Dachau", league: "Pokalrunde Südbayern West Männer", chip: "Pokalrunde", wettbewerb: "b79976b3-1dc7-4c14-a965-9d713b5f2f61", teamId: "dd1a629b-25c8-4172-be66-8d3f20864f28" },
+        { cat: "h", grp: "Herren 1", team: "ASV Dachau", league: "Landespokal Männer", chip: "Landespokal", wettbewerb: "12236641-a81f-4605-8e7f-020185161193", teamId: "688e4da0-f221-4985-9511-39f9f43ab8a1" },
         { cat: "h", grp: "Herren 2", team: "ASV Dachau II", league: "Dritte Liga Ost Männer", wettbewerb: "3239c1ea-ccad-410d-9205-004695d3f5c6", teamId: "b2ec1478-a06c-4102-8553-77317cf30ee6" },
-        { cat: "h", grp: "Herren 3", team: "ASV Dachau III", league: "Regionalliga Süd-Ost Männer", wettbewerb: "12ad8590-9ed2-4e10-9356-9c296bed5568", teamId: "1e82716a-8750-454c-b87d-adcc7766b7a9" },
-        { cat: "h", grp: "Herren 3", team: "ASV Dachau III", league: "Pokalrunde Südbayern West Männer", wettbewerb: "b79976b3-1dc7-4c14-a965-9d713b5f2f61", teamId: "7aae620c-54ee-4c73-a867-0e0d3714994a" },
+        { cat: "h", grp: "Herren 3", team: "ASV Dachau III", league: "Regionalliga Süd-Ost Männer", chip: "Regionalliga", wettbewerb: "12ad8590-9ed2-4e10-9356-9c296bed5568", teamId: "1e82716a-8750-454c-b87d-adcc7766b7a9" },
+        { cat: "h", grp: "Herren 3", team: "ASV Dachau III", league: "Pokalrunde Südbayern West Männer", chip: "Pokalrunde", wettbewerb: "b79976b3-1dc7-4c14-a965-9d713b5f2f61", teamId: "7aae620c-54ee-4c73-a867-0e0d3714994a" },
         { cat: "h", grp: "Herren 4", team: "ASV Dachau IV", league: "Landesliga Süd-West Männer", wettbewerb: "71d66706-e82e-4bc8-bd7f-2ce0939496a5", teamId: "1574a5d2-94a2-4956-b58d-4561013b7a2d" },
         { cat: "h", grp: "Herren 5", team: "ASV Dachau V", league: "Bezirksliga West Männer", wettbewerb: "aea4d3ff-56de-403a-b67d-2fba4bf83fb8", teamId: "7e4a3f5d-980b-4264-a327-77340796c0f4" },
         { cat: "h", grp: "Herren 6", team: "ASV Dachau VI", league: "Bezirksklasse 2 Männer", wettbewerb: "d5f041f4-9e64-427c-ba0d-a05d4466f98c", teamId: "3ea63380-db5a-4dea-947a-c28dcbcb61de" },
@@ -123,8 +123,8 @@
         { cat: "jm", grp: "U16", team: "ASV Dachau II", league: "U16 Südliga 1 männlich", wettbewerb: "c1368ade-ef29-4276-8802-4255b08f0b04", teamId: "f4b20613-a02d-4acb-a3cd-caf761a3b087" },
         { cat: "jm", grp: "U16", team: "ASV Dachau III", league: "U16 Südliga 3/4 männlich", wettbewerb: "697b5a4a-09ad-4d03-9ceb-67c25998e305", teamId: "73465466-072c-4b9f-a07f-b398c2971070" },
         { cat: "jm", grp: "U14", team: "ASV Dachau", league: "U14 Bezirksliga männlich", wettbewerb: "fe310796-a70d-4803-b6da-16c6d96b600c", teamId: "8823de48-becc-48ea-aa0b-de9a070e9f47" },
-        { cat: "jm", grp: "U14", team: "ASV Dachau II", chip: "ASV Dachau II (BL)", league: "U14 Bezirksliga männlich", wettbewerb: "fe310796-a70d-4803-b6da-16c6d96b600c", teamId: "53120ed9-82cd-40bf-967c-1c7ac6d0714a" },
-        { cat: "jm", grp: "U14", team: "ASV Dachau II", chip: "ASV Dachau II (BK)", league: "U14 Bezirksklasse männlich", wettbewerb: "17dc9b92-85ce-439e-b131-61f5731038db", teamId: "834f340c-154f-4e5f-99f5-8c37ff205c02" },
+        { cat: "jm", grp: "U14", team: "ASV Dachau II", chip: "ASV II (BL)", league: "U14 Bezirksliga männlich", wettbewerb: "fe310796-a70d-4803-b6da-16c6d96b600c", teamId: "53120ed9-82cd-40bf-967c-1c7ac6d0714a" },
+        { cat: "jm", grp: "U14", team: "ASV Dachau II", chip: "ASV II (BK)", league: "U14 Bezirksklasse männlich", wettbewerb: "17dc9b92-85ce-439e-b131-61f5731038db", teamId: "834f340c-154f-4e5f-99f5-8c37ff205c02" },
         { cat: "jm", grp: "U14", team: "ASV Dachau III", league: "U14 Bezirksklasse männlich", wettbewerb: "17dc9b92-85ce-439e-b131-61f5731038db", teamId: "d718aaca-30ea-4739-86dc-810e043f4461" },
         { cat: "jm", grp: "U13", team: "ASV Dachau", league: "U13 OBB Bezirksliga/Bezirksklasse männlich", wettbewerb: "9e4b2072-f6a5-4baa-96ff-338f9a6f4cd2", teamId: "9d214264-3a85-4ec1-a29a-0b2a658c0675" },
         { cat: "jm", grp: "U13", team: "ASV Dachau II", league: "U13 OBB Bezirksliga/Bezirksklasse männlich", wettbewerb: "9e4b2072-f6a5-4baa-96ff-338f9a6f4cd2", teamId: "5cbbcab8-9b68-48e2-bd91-8da8e5f28dcc" },
@@ -154,22 +154,24 @@
         { cat: "jw", grp: "U13", team: "ASV Dachau III", league: "U13 Kreisliga West weiblich", wettbewerb: "e377847f-0db9-47f0-b500-2b3ee8ae40c2", teamId: "76d4424e-f35a-456f-b2e1-cd29fc4c0e0c" },
         { cat: "jw", grp: "U12", team: "ASV Dachau", league: "U12 Kreisliga West weiblich", wettbewerb: "9883e3cd-c1ea-45ec-93c4-0d439ec372f4", teamId: "22014cb0-8ca0-410c-9dd4-5f74c51cf5d7" },
         { cat: "jw", grp: "U12", team: "ASV Dachau II", league: "U12 Kreisliga West weiblich", wettbewerb: "9883e3cd-c1ea-45ec-93c4-0d439ec372f4", teamId: "c57102ca-7468-43f7-8c1b-b0cdc1a13c55" },
-
-        // ---------------- MIXED ----------------
-        { cat: "mix", grp: "Mixed", team: "ASV Dachau", league: "West Gruppe B2 Mixed", wettbewerb: "da80f3ea-25d9-4bd8-9480-72b507bf9398", teamId: "989a1a1f-f27e-4954-b789-6a8230994c1e" },
       ];
 
       const CATS = [
         { id: "h", label: "Herren" },
         { id: "d", label: "Damen" },
-        { id: "jm", label: "Jugend männlich" },
-        { id: "jw", label: "Jugend weiblich" },
-        { id: "mix", label: "Mixed" },
+        { id: "jm", label: "Jugend M" },
+        { id: "jw", label: "Jugend W" },
       ];
       // Reihenfolge der Stufe-2-Filter
       const GRP_ORDER = { jm: ["U12", "U13", "U14", "U16", "U18"], jw: ["U12", "U13", "U14", "U16", "U18", "U20"] };
 
       const TICKER_BASE = "https://bvv.sams-ticker.de/matchseries/";
+      // Ticker-ID pro Eintrag: Standard = Wettbewerb-Id aus dem Portal.
+      // Für Ligen, bei denen der Ticker diese ID nicht kennt (zeigt
+      // dann "heutige Spiele" von allen Ligen), die richtige
+      // Matchseries-UUID im Eintrag als "tickerId" nachtragen
+      // (im Ticker auf die Liga navigieren und die URL kopieren).
+      const tickerIdOf = (t) => t.tickerId || t.wettbewerb;
       // Spieldetail-Link (klickbare Spielplan-Zeilen). Verifiziert für
       // Jugend-Ligen; für Erwachsenen/Mixed ist der Pfad noch unklar
       // -> dort vorerst kein Klick (detailBase leer).
@@ -214,15 +216,15 @@
             <button class="tabbtn" data-pane="e-${i}-tabelle">Tabelle</button>
           </div>
           <div class="tabpane active" id="e-${i}-ticker">
-            <div class="card">
+            <div class="card wide">
               <div class="tickerhead">
                 <span style="font-size:.82rem; color:#6b7280;">BVV Live-Ticker – ganze Liga</span>
                 <button class="refresh" title="Ticker neu laden">🔄 neu laden</button>
               </div>
-              <iframe class="ticker-frame" data-src="${TICKER_BASE}${t.wettbewerb}" title="BVV Live-Ticker ${t.league}" allow="fullscreen"></iframe>
+              <iframe class="ticker-frame" data-src="${TICKER_BASE}${tickerIdOf(t)}" title="BVV Live-Ticker ${t.league}" allow="fullscreen"></iframe>
               <p class="fallback">
                 Der Ticker lässt sich hier nicht direkt einbetten –
-                <a href="${TICKER_BASE}${t.wettbewerb}" target="_blank" rel="noopener">hier in einem neuen Tab öffnen ↗</a>
+                <a href="${TICKER_BASE}${tickerIdOf(t)}" target="_blank" rel="noopener">hier in einem neuen Tab öffnen ↗</a>
               </p>
             </div>
           </div>
@@ -301,11 +303,24 @@
         });
       }
 
+      // Kurz-Label für Stufe 3: "ASV Dachau III" -> "ASV III" usw.
+      const shortLabel = (team) => team
+        .replace("ASV Dachau U18 m II", "ASV U18 II")
+        .replace("ASV Dachau U18 m", "ASV U18 I")
+        .replace("ASV Dachau VIII", "ASV VIII")
+        .replace("ASV Dachau VII", "ASV VII")
+        .replace("ASV Dachau VI", "ASV VI")
+        .replace("ASV Dachau V", "ASV V")
+        .replace("ASV Dachau IV", "ASV IV")
+        .replace("ASV Dachau III", "ASV III")
+        .replace("ASV Dachau II", "ASV II")
+        .replace("ASV Dachau", "ASV I");
+
       function renderEntryRow() {
         entryRow.innerHTML = '<div class="rowlabel">3 · Team / Wettbewerb</div>';
         if (state.grp === null) return;
         CONFIG.filter((e) => e.cat === state.cat && e.grp === state.grp).forEach((e) => {
-          const label = e.chip || e.team;
+          const label = e.chip || shortLabel(e.team);
           entryRow.appendChild(chip(label, state.entry === e.idx, () => {
             state.entry = e.idx;
             renderAll();
