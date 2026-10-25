@@ -18,15 +18,18 @@
       h1 { font-size: 1.15rem; margin: 0; }
       .sub { color: #6b7280; font-size: .85rem; }
 
-      /* Mannschafts-Auswahl */
-      .teambar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
-      .teambtn {
+      .filterrow { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .5rem; align-items: center; }
+      .filterrow .rowlabel { font-size: .72rem; color: #9ca3af; width: 100%; }
+      .chip {
         border: 1px solid #d1d5db; background: #fff; border-radius: 999px;
-        padding: .45rem 1rem; font-size: .9rem; cursor: pointer;
+        padding: .35rem .8rem; font-size: .82rem; cursor: pointer;
       }
-      .teambtn.active { background: #1e3a8a; border-color: #1e3a8a; color: #fff; }
+      .chip.active { background: #1e3a8a; border-color: #1e3a8a; color: #fff; }
 
-      /* Unter-Tabs pro Mannschaft */
+      .teamview { margin-top: .75rem; }
+      .teamtitle { font-size: 1rem; font-weight: 700; margin: .25rem 0 .5rem; }
+      .teamtitle small { color: #6b7280; font-weight: 400; }
+
       .tabbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
       .tabbtn {
         border: 1px solid #d1d5db; background: #fff; border-radius: 8px;
@@ -34,11 +37,16 @@
       }
       .tabbtn.active { background: #2563eb; border-color: #2563eb; color: #fff; }
 
-      .team { display: none; }
-      .team.active { display: block; }
+      .entry { display: none; }
+      .entry.active { display: block; }
       .tabpane { display: none; }
       .tabpane.active { display: block; }
       .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; overflow-x: auto; }
+      .tickerhead { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; }
+      .tickerhead .refresh {
+        border: 1px solid #d1d5db; background: #fff; border-radius: 8px;
+        padding: .3rem .6rem; font-size: .78rem; cursor: pointer;
+      }
       .ticker-frame { width: 100%; height: 640px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
       .fallback { margin-top: .6rem; font-size: .82rem; color: #6b7280; display: none; }
       .fallback a { color: #1e3a8a; }
@@ -50,13 +58,10 @@
       .vapi th { background: #f1f5f9; }
       .vapi tr.marked td { background: #eff6ff; font-weight: 600; }
       .vapi tr.eigenesheimspiel td { background: #fefce8; }
-      /* Spielplan-Zeilen klickbar (öffnen BVV-Spieldetail mit Live-Ticker) */
-      .vapi tr.spiel { cursor: pointer; }
-      .vapi tr.spiel:hover td { background: #dbeafe; }
-      .vapi tr.spiel:hover td a { color: #1e3a8a; font-weight: 600; }
-      /* Team-Spalten dürfen nie ausgeblendet werden (auch nicht durch
-         mitgeladenes CSS der Schnittstelle auf kleinen Displays) */
       .vapi .team, .vapi .teama, .vapi .teamb { display: table-cell !important; max-width: 45vw; white-space: normal !important; }
+      /* Spielplan-Zeilen klickbar (öffnen BVV-Spieldetail mit Live-Ticker) */
+      .vapi tr.spiel.clickable { cursor: pointer; }
+      .vapi tr.spiel.clickable:hover td { background: #dbeafe; }
     </style>
   </head>
   <body>
@@ -68,177 +73,296 @@
       </div>
     </header>
 
-    <div class="teambar" id="teambar"></div>
-    <div id="teams"></div>
+    <!-- Stufe 1: Kategorie -->
+    <div class="filterrow" id="catRow"></div>
+    <!-- Stufe 2: Mannschaft / Altersklasse -->
+    <div class="filterrow" id="grpRow"></div>
+    <!-- Stufe 3: konkretes Team / Wettbewerb -->
+    <div class="filterrow" id="entryRow"></div>
+
+    <div class="teamview" id="teamview"></div>
 
     <p class="note">
       Datenquelle: BVV-Ergebnisschnittstelle (api.volleyball-bayern.de) ·
-      Live-Ticker: bvv.sams-ticker.de (Matchseries-UUID = Wettbewerbs-Id aus dem BVV-Portal).
+      Live-Ticker: bvv.sams-ticker.de · Spieldetails: volleyball.bayern
     </p>
 
     <script>
       // ================================================================
-      // KONFIGURATION – pro Mannschaft ein Eintrag.
-      // Wettbewerb-Id + Team-Id: BVV-Portal -> Vereinshomepage ->
-      // Hallenergebnisse. Die Matchseries-URL des Tickers ergibt sich
-      // automatisch aus der Wettbewerb-Id.
+      // KONFIGURATION – alle Mannschaften (BVV-Portal: Hallenergebnisse)
+      // cat:   h = Herren, d = Damen, jm = Jugend m, jw = Jugend w, mix = Mixed
+      // grp:   Stufe-2-Filter (Mannschafts-Nr. bzw. Altersklasse)
+      // chip:  Beschriftung Stufe 3 (optional, Default: Wettbewerb/Team)
       // ================================================================
       const CONFIG = [
-        {
-          name: "U16 weiblich",
-          league: "U16 Bezirksliga weiblich",
-          wettbewerb: "c7a7d183-b089-47c4-a0b8-cf7c625acf4a",
-          teamId: "9d1d1f61-f8a9-4119-a96f-5db53f20c8e4",
-        },
-        // Weitere Teams einfach ergänzen, z.B.:
-        {
-          name: "U16 männlich (ASV Dachau III)",
-          league: "U16 Südliga 3/4 männlich",
-          wettbewerb: "697b5a4a-09ad-4d03-9ceb-67c25998e305",
-          teamId: "73465466-072c-4b9f-a07f-b398c2971070",
-        },
+        // ---------------- HERREN ----------------
+        { cat: "h", grp: "Herren 1", team: "ASV Dachau", league: "2. Bundesliga Süd Männer", wettbewerb: "0aef379f-c42c-46a4-95e0-60ea4d7ba214", teamId: "82ec9fd4-c66d-4149-ac4d-dc1a33486b13" },
+        { cat: "h", grp: "Herren 1", team: "ASV Dachau", league: "Pokalrunde Südbayern West Männer", wettbewerb: "b79976b3-1dc7-4c14-a965-9d713b5f2f61", teamId: "dd1a629b-25c8-4172-be66-8d3f20864f28" },
+        { cat: "h", grp: "Herren 1", team: "ASV Dachau", league: "Landespokal Männer", wettbewerb: "12236641-a81f-4605-8e7f-020185161193", teamId: "688e4da0-f221-4985-9511-39f9f43ab8a1" },
+        { cat: "h", grp: "Herren 2", team: "ASV Dachau II", league: "Dritte Liga Ost Männer", wettbewerb: "3239c1ea-ccad-410d-9205-004695d3f5c6", teamId: "b2ec1478-a06c-4102-8553-77317cf30ee6" },
+        { cat: "h", grp: "Herren 3", team: "ASV Dachau III", league: "Regionalliga Süd-Ost Männer", wettbewerb: "12ad8590-9ed2-4e10-9356-9c296bed5568", teamId: "1e82716a-8750-454c-b87d-adcc7766b7a9" },
+        { cat: "h", grp: "Herren 3", team: "ASV Dachau III", league: "Pokalrunde Südbayern West Männer", wettbewerb: "b79976b3-1dc7-4c14-a965-9d713b5f2f61", teamId: "7aae620c-54ee-4c73-a867-0e0d3714994a" },
+        { cat: "h", grp: "Herren 4", team: "ASV Dachau IV", league: "Landesliga Süd-West Männer", wettbewerb: "71d66706-e82e-4bc8-bd7f-2ce0939496a5", teamId: "1574a5d2-94a2-4956-b58d-4561013b7a2d" },
+        { cat: "h", grp: "Herren 5", team: "ASV Dachau V", league: "Bezirksliga West Männer", wettbewerb: "aea4d3ff-56de-403a-b67d-2fba4bf83fb8", teamId: "7e4a3f5d-980b-4264-a327-77340796c0f4" },
+        { cat: "h", grp: "Herren 6", team: "ASV Dachau VI", league: "Bezirksklasse 2 Männer", wettbewerb: "d5f041f4-9e64-427c-ba0d-a05d4466f98c", teamId: "3ea63380-db5a-4dea-947a-c28dcbcb61de" },
+        { cat: "h", grp: "Herren 7", team: "ASV Dachau VII", league: "Kreisliga 3 Männer", wettbewerb: "e4d55a45-caac-4452-9aee-9c3491273b78", teamId: "305cf183-32a3-4dc9-a5f0-dcff6428c327" },
+        { cat: "h", grp: "Herren 8", team: "ASV Dachau VIII", league: "Kreisliga 3 Männer", wettbewerb: "e4d55a45-caac-4452-9aee-9c3491273b78", teamId: "84934bb5-1eed-429f-b270-82cdc0b9b319" },
+
+        // ---------------- DAMEN ----------------
+        { cat: "d", grp: "Damen 1", team: "ASV Dachau", league: "Dritte Liga Ost Frauen", wettbewerb: "ea2fc469-c865-4b9b-a457-eb9b4debced0", teamId: "d0bb17c3-c076-41a7-b06a-78d347c26e5e" },
+        { cat: "d", grp: "Damen 2", team: "ASV Dachau II", league: "Landesliga Süd-West Frauen", wettbewerb: "c6bfb1ea-ab19-43cc-b864-ae48865c3c22", teamId: "368c5a41-6a3a-4b95-8371-aa78ef160255" },
+        { cat: "d", grp: "Damen 3", team: "ASV Dachau III", league: "Bezirksliga West Frauen", wettbewerb: "00572b76-b0a6-4730-9b69-965ef2c22335", teamId: "d9de5760-0b7b-4130-9f14-e47fd55e1516" },
+        { cat: "d", grp: "Damen 4", team: "ASV Dachau IV", league: "Bezirksklasse 1 Frauen", wettbewerb: "d14a83b4-3109-4be5-835b-e56282234a5b", teamId: "051f4ba6-1eb6-4831-b8df-da2f21629c0f" },
+        { cat: "d", grp: "Damen 5", team: "ASV Dachau V", league: "Kreisliga 2 Frauen", wettbewerb: "b23cdb6e-d8b2-4c4e-ba3d-f5fbfda2c7fe", teamId: "f0dfa9ca-5a0f-4d3d-833d-23b6ceb32c22" },
+
+        // ---------------- JUGEND MÄNNLICH ----------------
+        { cat: "jm", grp: "U18", team: "ASV Dachau U18 m", league: "U18 Bezirksliga männlich", wettbewerb: "10a79288-fe8b-4f68-b35f-577e9dbb1987", teamId: "f552c499-db61-4a15-afe2-b0237ce06d13" },
+        { cat: "jm", grp: "U18", team: "ASV Dachau U18 m II", league: "U18 Bezirksliga männlich", wettbewerb: "10a79288-fe8b-4f68-b35f-577e9dbb1987", teamId: "34256a90-9aba-4e32-96f4-c9b8d0a54ec2" },
+        { cat: "jm", grp: "U18", team: "ASV Dachau III", league: "U18 Kreisliga 1 männlich", wettbewerb: "811f8864-166e-49ef-8246-e6607b936e63", teamId: "33d188cb-e1cc-4b8a-aef8-35ebae02f6fa" },
+        { cat: "jm", grp: "U16", team: "ASV Dachau", league: "U16 Südliga 1 männlich", wettbewerb: "c1368ade-ef29-4276-8802-4255b08f0b04", teamId: "a690fcee-6def-4a06-8844-4abc3bb5dfef" },
+        { cat: "jm", grp: "U16", team: "ASV Dachau II", league: "U16 Südliga 1 männlich", wettbewerb: "c1368ade-ef29-4276-8802-4255b08f0b04", teamId: "f4b20613-a02d-4acb-a3cd-caf761a3b087" },
+        { cat: "jm", grp: "U16", team: "ASV Dachau III", league: "U16 Südliga 3/4 männlich", wettbewerb: "697b5a4a-09ad-4d03-9ceb-67c25998e305", teamId: "73465466-072c-4b9f-a07f-b398c2971070" },
+        { cat: "jm", grp: "U14", team: "ASV Dachau", league: "U14 Bezirksliga männlich", wettbewerb: "fe310796-a70d-4803-b6da-16c6d96b600c", teamId: "8823de48-becc-48ea-aa0b-de9a070e9f47" },
+        { cat: "jm", grp: "U14", team: "ASV Dachau II", chip: "ASV Dachau II (BL)", league: "U14 Bezirksliga männlich", wettbewerb: "fe310796-a70d-4803-b6da-16c6d96b600c", teamId: "53120ed9-82cd-40bf-967c-1c7ac6d0714a" },
+        { cat: "jm", grp: "U14", team: "ASV Dachau II", chip: "ASV Dachau II (BK)", league: "U14 Bezirksklasse männlich", wettbewerb: "17dc9b92-85ce-439e-b131-61f5731038db", teamId: "834f340c-154f-4e5f-99f5-8c37ff205c02" },
+        { cat: "jm", grp: "U14", team: "ASV Dachau III", league: "U14 Bezirksklasse männlich", wettbewerb: "17dc9b92-85ce-439e-b131-61f5731038db", teamId: "d718aaca-30ea-4739-86dc-810e043f4461" },
+        { cat: "jm", grp: "U13", team: "ASV Dachau", league: "U13 OBB Bezirksliga/Bezirksklasse männlich", wettbewerb: "9e4b2072-f6a5-4baa-96ff-338f9a6f4cd2", teamId: "9d214264-3a85-4ec1-a29a-0b2a658c0675" },
+        { cat: "jm", grp: "U13", team: "ASV Dachau II", league: "U13 OBB Bezirksliga/Bezirksklasse männlich", wettbewerb: "9e4b2072-f6a5-4baa-96ff-338f9a6f4cd2", teamId: "5cbbcab8-9b68-48e2-bd91-8da8e5f28dcc" },
+        { cat: "jm", grp: "U13", team: "ASV Dachau III", league: "U13 OBB Bezirksliga/Bezirksklasse männlich", wettbewerb: "9e4b2072-f6a5-4baa-96ff-338f9a6f4cd2", teamId: "cf075d5c-8aa5-4a7e-a6cd-57be013f9ca7" },
+        { cat: "jm", grp: "U13", team: "ASV Dachau IV", league: "U13 OBB Bezirksliga/Bezirksklasse männlich", wettbewerb: "9e4b2072-f6a5-4baa-96ff-338f9a6f4cd2", teamId: "6cdbfc3f-854d-40ff-9849-d5161716ae6c" },
+        { cat: "jm", grp: "U12", team: "ASV Dachau", league: "U12 Kreisliga 4 männlich", wettbewerb: "b8c74624-00ff-40b5-9925-19a539d9307d", teamId: "b16d5394-1ecc-4692-921f-9fab62df92f6" },
+        { cat: "jm", grp: "U12", team: "ASV Dachau II", league: "U12 Kreisliga 3 männlich", wettbewerb: "099601cc-2ace-4f35-972d-ef030a587b39", teamId: "26cb64d0-5814-411a-b288-f2bc7f81b616" },
+        { cat: "jm", grp: "U12", team: "ASV Dachau III", league: "U12 Kreisliga 4 männlich", wettbewerb: "b8c74624-00ff-40b5-9925-19a539d9307d", teamId: "2d34fb80-901e-40bc-9700-304508825c8a" },
+        { cat: "jm", grp: "U12", team: "ASV Dachau IV", league: "U12 Kreisliga 4 männlich", wettbewerb: "b8c74624-00ff-40b5-9925-19a539d9307d", teamId: "48f650cd-515e-40cc-a2e0-17bc3e694c16" },
+        { cat: "jm", grp: "U12", team: "ASV Dachau V", league: "U12 Kreisliga 3 männlich", wettbewerb: "099601cc-2ace-4f35-972d-ef030a587b39", teamId: "7181717f-f547-471d-a6e9-435104f920a9" },
+
+        // ---------------- JUGEND WEIBLICH ----------------
+        { cat: "jw", grp: "U20", team: "ASV Dachau", league: "Regionalmeisterschaft SO U20 weiblich", wettbewerb: "c65fa4de-5361-4ae9-a15c-5810a5ad0252", teamId: "43ec99d0-1521-4224-8444-1cc91acd283f" },
+        { cat: "jw", grp: "U20", team: "ASV Dachau II", league: "U20 Bezirksliga weiblich", wettbewerb: "d0b78033-2e7c-491d-ac72-1e71f059b8a5", teamId: "8f88770c-e359-4cf3-91de-9f6620371167" },
+        { cat: "jw", grp: "U20", team: "ASV Dachau III", league: "U20 Bezirksklasse 1 weiblich", wettbewerb: "906589ab-7222-4fbd-9f1b-12b36862517b", teamId: "bc3dbf98-e90e-46a8-82e5-98539f2df30d" },
+        { cat: "jw", grp: "U20", team: "ASV Dachau IV", league: "U20 Kreisliga 2 weiblich", wettbewerb: "d1148f44-a0fb-4476-aca5-a5e3aaa2b478", teamId: "871ee80e-47fe-47aa-a75c-2db1f4a66c8e" },
+        { cat: "jw", grp: "U18", team: "ASV Dachau II", league: "U18 Bezirksliga weiblich", wettbewerb: "02920109-4d15-4522-8b8a-7fcbb8b99c8b", teamId: "6be0c866-c57b-414a-9484-8ddf188777dd" },
+        { cat: "jw", grp: "U18", team: "ASV Dachau III", league: "U18 Bezirksklasse 2 weiblich", wettbewerb: "cd907f3d-a1b3-41c9-b95e-96deab1cc61f", teamId: "e681ea51-6577-4c0b-b08e-f3ae3fefa46d" },
+        { cat: "jw", grp: "U18", team: "ASV Dachau IV", league: "U18 Kreisliga 4 weiblich", wettbewerb: "8c3056e7-a665-40c9-97b1-c847329e6fb7", teamId: "052562d3-191b-4216-bc28-2e5a536b3841" },
+        { cat: "jw", grp: "U16", team: "ASV Dachau II", league: "U16 Bezirksliga weiblich", wettbewerb: "c7a7d183-b089-47c4-a0b8-cf7c625acf4a", teamId: "9d1d1f61-f8a9-4119-a96f-5db53f20c8e4" },
+        { cat: "jw", grp: "U16", team: "ASV Dachau III", league: "U16 Bezirksklasse 1 weiblich", wettbewerb: "4e072a0c-8b29-4ab3-b771-a881ec13a085", teamId: "c3872cef-745b-46f5-8394-7bacf748552a" },
+        { cat: "jw", grp: "U14", team: "ASV Dachau", league: "U14 Bezirksliga weiblich", wettbewerb: "92040698-62a0-4624-8eb5-8e8159210cb7", teamId: "bf39aabb-7cd9-4718-ab9d-548c1bcdeecd" },
+        { cat: "jw", grp: "U14", team: "ASV Dachau II", league: "U14 Bezirksklasse 1 weiblich", wettbewerb: "c5402641-3050-4552-9940-a66129e9ef71", teamId: "b19ee961-e908-4792-b1eb-fabe650e8e43" },
+        { cat: "jw", grp: "U14", team: "ASV Dachau III", league: "U14 Bezirksklasse 1 weiblich", wettbewerb: "c5402641-3050-4552-9940-a66129e9ef71", teamId: "fb015bbf-372c-4932-81fc-b55d024d295a" },
+        { cat: "jw", grp: "U13", team: "ASV Dachau", league: "U13 Kreisliga West weiblich", wettbewerb: "e377847f-0db9-47f0-b500-2b3ee8ae40c2", teamId: "f89f2bb1-a036-4549-96d2-3672d9490806" },
+        { cat: "jw", grp: "U13", team: "ASV Dachau II", league: "U13 Kreisliga West weiblich", wettbewerb: "e377847f-0db9-47f0-b500-2b3ee8ae40c2", teamId: "31eb997b-4879-4313-8095-486aa629a29f" },
+        { cat: "jw", grp: "U13", team: "ASV Dachau III", league: "U13 Kreisliga West weiblich", wettbewerb: "e377847f-0db9-47f0-b500-2b3ee8ae40c2", teamId: "76d4424e-f35a-456f-b2e1-cd29fc4c0e0c" },
+        { cat: "jw", grp: "U12", team: "ASV Dachau", league: "U12 Kreisliga West weiblich", wettbewerb: "9883e3cd-c1ea-45ec-93c4-0d439ec372f4", teamId: "22014cb0-8ca0-410c-9dd4-5f74c51cf5d7" },
+        { cat: "jw", grp: "U12", team: "ASV Dachau II", league: "U12 Kreisliga West weiblich", wettbewerb: "9883e3cd-c1ea-45ec-93c4-0d439ec372f4", teamId: "c57102ca-7468-43f7-8c1b-b0cdc1a13c55" },
+
+        // ---------------- MIXED ----------------
+        { cat: "mix", grp: "Mixed", team: "ASV Dachau", league: "West Gruppe B2 Mixed", wettbewerb: "da80f3ea-25d9-4bd8-9480-72b507bf9398", teamId: "989a1a1f-f27e-4954-b789-6a8230994c1e" },
       ];
 
+      const CATS = [
+        { id: "h", label: "Herren" },
+        { id: "d", label: "Damen" },
+        { id: "jm", label: "Jugend männlich" },
+        { id: "jw", label: "Jugend weiblich" },
+        { id: "mix", label: "Mixed" },
+      ];
+      // Reihenfolge der Stufe-2-Filter
+      const GRP_ORDER = { jm: ["U12", "U13", "U14", "U16", "U18"], jw: ["U12", "U13", "U14", "U16", "U18", "U20"] };
+
       const TICKER_BASE = "https://bvv.sams-ticker.de/matchseries/";
-      // Basis-URL der BVV-Spieldetail-Seite: wird um die numerische
-      // Spiel-ID ergänzt (data-vapi-spielid). Die Seite enthält u.a.
-      // Halle, Schiris und den LIVE-Ticker-Knopf.
-      const SPIELDETAIL_BASE = "https://volleyball.bayern/ergebnisse/jugend/ueberbezirkliche-meisterschaften/spiel-";
-      // Hinweis: für Erwachsenen-Ligen evtl. anderer Pfad – dann pro
-      // Team ein "detailBase" im CONFIG-Eintrag setzen.
+      // Spieldetail-Link (klickbare Spielplan-Zeilen). Verifiziert für
+      // Jugend-Ligen; für Erwachsenen/Mixed ist der Pfad noch unklar
+      // -> dort vorerst kein Klick (detailBase leer).
+      const SPIELDETAIL_JUGEND = "https://volleyball.bayern/ergebnisse/jugend/ueberbezirkliche-meisterschaften/spiel-";
+      const detailBaseOf = (e) => (e.cat === "jm" || e.cat === "jw") ? SPIELDETAIL_JUGEND : null;
 
-      // ---------- UI aus der Konfiguration bauen ----------
-      const teambar = document.getElementById("teambar");
-      const teamsRoot = document.getElementById("teams");
+      // ---------------- Auswahl-Status ----------------
+      let state = { cat: "h", grp: null, entry: null };
 
-      CONFIG.forEach((t, ti) => {
-        // Mannschafts-Button
-        const b = document.createElement("button");
-        b.className = "teambtn" + (ti === 0 ? " active" : "");
-        b.textContent = t.name;
-        b.dataset.team = "team-" + ti;
-        b.onclick = () => selectTeam(b);
-        teambar.appendChild(b);
+      // ---------------- Views vorbereiten ----------------
+      const catRow = document.getElementById("catRow");
+      const grpRow = document.getElementById("grpRow");
+      const entryRow = document.getElementById("entryRow");
+      const teamview = document.getElementById("teamview");
 
-        // Mannschafts-Container mit 3 Unter-Tabs
-        const wrap = document.createElement("div");
-        wrap.className = "team" + (ti === 0 ? " active" : "");
-        wrap.id = "team-" + ti;
-
-        const tabs = document.createElement("div");
-        tabs.className = "tabbar";
-        tabs.innerHTML = `
-          <button class="tabbtn active" data-pane="t-${ti}-ticker">Live-Ticker</button>
-          <button class="tabbtn" data-pane="t-${ti}-spiele">Spielplan</button>
-          <button class="tabbtn" data-pane="t-${ti}-tabelle">Tabelle</button>`;
-        wrap.appendChild(tabs);
-
-        // --- Tab 1: Live-Ticker (iframe, Matchseries-URL aus Wettbewerb-Id) ---
-        const tickerPane = document.createElement("div");
-        tickerPane.className = "tabpane active";
-        tickerPane.id = "t-" + ti + "-ticker";
-        tickerPane.innerHTML = `
-          <div class="card">
-            <iframe class="ticker-frame"
-                    src="${TICKER_BASE}${t.wettbewerb}"
-                    title="BVV Live-Ticker ${t.league}"
-                    allow="fullscreen"></iframe>
-            <p class="fallback">
-              Der Ticker lässt sich hier nicht direkt einbetten –
-              <a href="${TICKER_BASE}${t.wettbewerb}" target="_blank" rel="noopener">hier in einem neuen Tab öffnen ↗</a>
-            </p>
-          </div>`;
-        wrap.appendChild(tickerPane);
-
-        // --- Tab 2: Spielplan (nur eigene Spiele, gefiltert auf Team-Id) ---
-        const spielePane = document.createElement("div");
-        spielePane.className = "tabpane";
-        spielePane.id = "t-" + ti + "-spiele";
-        spielePane.innerHTML = `
-          <div class="card">
-            <div class="vapi"
-                 data-wettbewerb="${t.wettbewerb}"
-                 data-typ="spiele"
-                 data-vapi-teams="[${t.teamId}]"
-                 data-vapi-teamfilter="[${t.teamId}]"
-                 data-vapi-heimspielkennzeichen="(H)">
+      // Für jeden Config-Eintrag einen (versteckten) Container bauen.
+      // Alle .vapi-Container existieren von Anfang an, damit das
+      // BVV-Skript sie beim Laden füllen kann; die iframes werden
+      // erst beim ersten Anzeigen geladen (Performance).
+      CONFIG.forEach((t, i) => {
+        t.idx = i;
+        const el = document.createElement("div");
+        el.className = "entry";
+        el.id = "entry-" + i;
+        el.innerHTML = `
+          <div class="teamtitle"></div>
+          <div class="tabbar">
+            <button class="tabbtn active" data-pane="e-${i}-ticker">Live-Ticker</button>
+            <button class="tabbtn" data-pane="e-${i}-spiele">Spielplan</button>
+            <button class="tabbtn" data-pane="e-${i}-tabelle">Tabelle</button>
+          </div>
+          <div class="tabpane active" id="e-${i}-ticker">
+            <div class="card">
+              <div class="tickerhead">
+                <span style="font-size:.82rem; color:#6b7280;">BVV Live-Ticker – ganze Liga</span>
+                <button class="refresh" title="Ticker neu laden">🔄 neu laden</button>
+              </div>
+              <iframe class="ticker-frame" data-src="${TICKER_BASE}${t.wettbewerb}" title="BVV Live-Ticker ${t.league}" allow="fullscreen"></iframe>
+              <p class="fallback">
+                Der Ticker lässt sich hier nicht direkt einbetten –
+                <a href="${TICKER_BASE}${t.wettbewerb}" target="_blank" rel="noopener">hier in einem neuen Tab öffnen ↗</a>
+              </p>
+            </div>
+          </div>
+          <div class="tabpane" id="e-${i}-spiele">
+            <div class="card">
+              <div class="vapi"
+                   data-wettbewerb="${t.wettbewerb}"
+                   data-typ="spiele"
+                   data-vapi-teams="[${t.teamId}]"
+                   data-vapi-teamfilter="[${t.teamId}]"
+                   data-vapi-heimspielkennzeichen="(H)">
+              </div>
+            </div>
+          </div>
+          <div class="tabpane" id="e-${i}-tabelle">
+            <div class="card">
+              <div class="vapi"
+                   data-wettbewerb="${t.wettbewerb}"
+                   data-typ="tabelle"
+                   data-vapi-teams="[${t.teamId}]">
+              </div>
             </div>
           </div>`;
-        wrap.appendChild(spielePane);
+        teamview.appendChild(el);
+        t.el = el;
 
-        // --- Tab 3: Tabelle (eigenes Team farblich markiert) ---
-        const tabPane = document.createElement("div");
-        tabPane.className = "tabpane";
-        tabPane.id = "t-" + ti + "-tabelle";
-        tabPane.innerHTML = `
-          <div class="card">
-            <div class="vapi"
-                 data-wettbewerb="${t.wettbewerb}"
-                 data-typ="tabelle"
-                 data-vapi-teams="[${t.teamId}]">
-            </div>
-          </div>`;
-        wrap.appendChild(tabPane);
+        el.querySelector(".teamtitle").textContent = t.team + " – " + t.league;
 
-        // Unter-Tabs umschalten
-        tabs.querySelectorAll(".tabbtn").forEach((btn) => {
+        el.querySelectorAll(".tabbtn").forEach((btn) => {
           btn.onclick = () => {
-            tabs.querySelectorAll(".tabbtn").forEach((x) => x.classList.remove("active"));
+            el.querySelectorAll(".tabbtn").forEach((x) => x.classList.remove("active"));
             btn.classList.add("active");
-            wrap.querySelectorAll(".tabpane").forEach((p) => p.classList.remove("active"));
+            el.querySelectorAll(".tabpane").forEach((p) => p.classList.remove("active"));
             document.getElementById(btn.dataset.pane).classList.add("active");
           };
         });
 
-        teamsRoot.appendChild(wrap);
+        el.querySelector(".refresh").onclick = () => {
+          const f = el.querySelector(".ticker-frame");
+          const src = f.getAttribute("data-src");
+          f.src = "about:blank";
+          setTimeout(() => { f.src = src; }, 50);
+        };
       });
 
-      function selectTeam(btn) {
-        document.querySelectorAll(".teambtn").forEach((x) => x.classList.remove("active"));
-        btn.classList.add("active");
-        document.querySelectorAll(".team").forEach((p) => p.classList.remove("active"));
-        const wrap = document.getElementById(btn.dataset.team);
-        wrap.classList.add("active");
-
-        // Live-Ticker des ausgewählten Teams neu laden (frische Daten)
-        const frame = wrap.querySelector(".ticker-frame");
-        if (frame) {
-          const src = frame.getAttribute("src");
-          frame.src = "about:blank";
-          setTimeout(() => { frame.src = src; }, 50);
-        }
+      // ---------------- Filter-Chips rendern ----------------
+      function chip(label, active, onclick) {
+        const b = document.createElement("button");
+        b.className = "chip" + (active ? " active" : "");
+        b.textContent = label;
+        b.onclick = onclick;
+        return b;
       }
 
-      // Spielplan-Zeilen klickbar machen, sobald die BVV-Schnittstelle
-      // sie gefüllt hat: jede Zeile öffnet die BVV-Spieldetail-Seite
-      // (mit Halle, Schiedsrichtern und LIVE-Ticker-Knopf).
+      function renderCatRow() {
+        catRow.innerHTML = '<div class="rowlabel">1 · Bereich</div>';
+        CATS.forEach((c) => {
+          catRow.appendChild(chip(c.label, state.cat === c.id, () => {
+            state.cat = c.id;
+            state.grp = null;
+            state.entry = null;
+            renderAll();
+          }));
+        });
+      }
+
+      function grpsOfCat(cat) {
+        const set = [...new Set(CONFIG.filter((e) => e.cat === cat).map((e) => e.grp))];
+        const order = GRP_ORDER[cat];
+        set.sort((a, b) => order ? order.indexOf(a) - order.indexOf(b) : a.localeCompare(b, "de", { numeric: true }));
+        return set;
+      }
+
+      function renderGrpRow() {
+        grpRow.innerHTML = '<div class="rowlabel">2 · Mannschaft / Altersklasse</div>';
+        grpsOfCat(state.cat).forEach((g) => {
+          grpRow.appendChild(chip(g, state.grp === g, () => {
+            state.grp = g;
+            state.entry = null;
+            renderAll();
+          }));
+        });
+      }
+
+      function renderEntryRow() {
+        entryRow.innerHTML = '<div class="rowlabel">3 · Team / Wettbewerb</div>';
+        const list = CONFIG.filter((e) => e.cat === state.cat && e.grp === state.grp);
+        // Falls nur ein Eintrag: direkt auswählen, keine dritte Reihe nötig
+        list.forEach((e) => {
+          const label = e.chip || e.team;
+          entryRow.appendChild(chip(label, state.entry === e.idx, () => {
+            state.entry = e.idx;
+            renderAll();
+          }));
+        });
+      }
+
+      function showEntry() {
+        document.querySelectorAll(".entry").forEach((p) => p.classList.remove("active"));
+        if (state.entry === null) return;
+        const t = CONFIG[state.entry];
+        t.el.classList.add("active");
+        // Ticker-iframe lazy laden (nur beim ersten Anzeigen)
+        const f = t.el.querySelector(".ticker-frame");
+        if (!f.src || f.src === "about:blank") f.src = f.getAttribute("data-src");
+        // Beim Teamwechsel: frische Tickerdaten
+        const src = f.getAttribute("data-src");
+        if (f.src !== src) f.src = src;
+      }
+
+      function renderAll() {
+        // sinnvolle Defaults: erste Gruppe bzw. erster Eintrag
+        if (state.grp === null || !grpsOfCat(state.cat).includes(state.grp)) {
+          state.grp = grpsOfCat(state.cat)[0];
+          state.entry = null;
+        }
+        if (state.entry === null) {
+          const first = CONFIG.findIndex((e) => e.cat === state.cat && e.grp === state.grp);
+          state.entry = first;
+        }
+        renderCatRow();
+        renderGrpRow();
+        renderEntryRow();
+        showEntry();
+      }
+      renderAll();
+
+      // ---------------- Spielplan-Zeilen klickbar machen ----------------
       function linkifySchedules() {
         document.querySelectorAll(".vapi tr.spiel").forEach((row) => {
           if (row.dataset.linkified) return;
-          const id = row.getAttribute("data-vapi-spielid");
-          if (!id) return;
+          const entryEl = row.closest(".entry");
+          const id = entryEl ? entryEl.id.replace("entry-", "") : null;
+          const t = CONFIG[Number(id)];
+          const base = t ? detailBaseOf(t) : null;
+          const sid = row.getAttribute("data-vapi-spielid");
+          if (!base || !sid) return;
           row.dataset.linkified = "1";
+          row.classList.add("clickable");
           row.title = "Spieldetails & Live-Ticker öffnen";
-          row.addEventListener("click", () => {
-            window.open(SPIELDETAIL_BASE + id, "_blank", "noopener");
-          });
+          row.addEventListener("click", () => window.open(base + sid, "_blank", "noopener"));
         });
       }
       setInterval(linkifySchedules, 1500);
 
-      // Fallback erkennen: Wenn der Ticker das Einbetten sperrt
+      // ---------------- Fallback, falls Einbetten gesperrt ----------------
       setTimeout(() => {
         document.querySelectorAll(".ticker-frame").forEach((f) => {
           try { if (f.contentWindow === null) f.parentElement.querySelector(".fallback").style.display = "block"; }
           catch (e) { f.parentElement.querySelector(".fallback").style.display = "block"; }
         });
       }, 5000);
-
-      // ================================================================
-      // WEITERE TEAMS: einfach einen Eintrag im CONFIG-Array oben
-      // ergänzen (name, league, wettbewerb, teamId) – die komplette
-      // Ansicht (Live-Ticker, Spielplan, Tabelle) entsteht automatisch.
-      // ================================================================
     </script>
 
     <!-- BVV-Schnittstelle: füllt alle .vapi-Container automatisch -->
