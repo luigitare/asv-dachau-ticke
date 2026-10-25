@@ -13,6 +13,10 @@
       .tabbarRow { margin-bottom: .5rem; }
       .logo { height: 40px; width: auto; flex-shrink: 0; display: block; }
       .mpSep { border-top: 1px solid #e5e7eb; margin: .7rem 0 .2rem; }
+      .closebtn {
+        width: 100%; margin-top: .6rem; border: 1px solid #d1d5db; background: #f9fafb;
+        border-radius: 10px; padding: .45rem; font-size: .82rem; cursor: pointer;
+      }
       .rowlabel2 { font-size: .65rem; color: #9ca3af; text-transform: uppercase; letter-spacing: .06em; margin: .2rem 0 .35rem; }
 
       /* Mittiger Menü-Knopf, Menü blendet ÜBER den Inhalt */
@@ -118,6 +122,7 @@
           <div class="filterrow" id="grpRow"></div>
           <!-- Stufe 3: konkretes Team / Wettbewerb -->
           <div class="filterrow" id="entryRow"></div>
+          <button class="closebtn" id="menuCloseBtn">✕ Menü schließen</button>
         </div>
       </div>
     </div>
@@ -399,6 +404,7 @@
       // Menü beim ersten Besuch ohne Auswahl automatisch öffnen
       let menuOpen = state.entry === null;
       menuBtn.onclick = () => { menuOpen = !menuOpen; renderAll(); };
+      document.getElementById("menuCloseBtn").onclick = () => { menuOpen = false; renderAll(); };
       const catRow = document.getElementById("catRow");
       const grpRow = document.getElementById("grpRow");
       const entryRow = document.getElementById("entryRow");
@@ -456,8 +462,7 @@
           entryRow.appendChild(chip(label, state.entry === e.idx, () => {
             state.entry = e.idx;
             rememberEntry(state.cat, state.grp, e.idx);
-            menuOpen = false; // Auswahl fertig -> Menü zuklappen
-            renderAll();
+            renderAll(); // Menü bleibt offen (Schließen nur explizit)
           }));
         });
       }
