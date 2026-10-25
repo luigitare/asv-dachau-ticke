@@ -75,6 +75,8 @@
     <details style="margin-top:1.5rem; background:#fff; border:1px dashed #9ca3af; border-radius:8px; padding:.75rem;">
       <summary style="cursor:pointer; font-weight:600; font-size:.85rem;">🔧 Debug-Ausgabe (vorübergehend)</summary>
       <textarea id="debug-out" readonly style="width:100%; height:180px; font-size:.7rem; font-family:monospace;"></textarea>
+      <textarea id="probe-out" readonly style="width:100%; height:220px; margin-top:.5rem; font-size:.7rem; font-family:monospace;" placeholder="Sondierung läuft..."></textarea>
+      <button id="probe-btn" style="margin-top:.5rem; padding:.4rem .8rem; font-size:.8rem; cursor:pointer;">📡 Sondierung starten</button>
     </details>
 
     <script>
@@ -214,6 +216,51 @@
       }
       setTimeout(dumpDebug, 3000);
       setTimeout(dumpDebug, 8000);
+
+      // ================================================================
+      // 📡 Sondierung: Kandidaten-URLs testen und Rohdaten sichtbar
+      // machen (vorübergehend). Findet die Daten-URLs, die die
+      // Schnittstelle / der Ticker benutzen.
+      // ================================================================
+      const KEY = "ff8671c3-ef58-433d-93c5-0f1e580c4347";
+      const W = CONFIG[0].wettbewerb; // Test-Wettbewerb (U16 weiblich)
+      const W2 = CONFIG.length > 1 ? CONFIG[1].wettbewerb : W;
+
+      const PROBES = [
+        // Daten-URLs der BVV-Schnittstelle (wahrscheinlichste Kandidaten)
+        `https://api.volleyball-bayern.de/jsi/data.php?key=${KEY}&wettbewerb=${W}&typ=spiele`,
+        `https://api.volleyball-bayern.de/jsi/data.php?key=${KEY}&wettbewerb=${W}&typ=tabelle`,
+        `https://api.volleyball-bayern.de/jsi/volley.php?key=${KEY}&wettbewerb=${W}&typ=spiele`,
+        `https://api.volleyball-bayern.de/jsi/volley.js.php?key=${KEY}`,
+        // Direktaufruf ohne "jsi"
+        `https://api.volleyball-bayern.de/data.php?key=${KEY}&wettbewerb=${W}&typ=spiele`,
+        // Ticker-Kandidaten (JSON-API des SPAs?)
+        `https://bvv.sams-ticker.de/api/matchseries/${W}`,
+        `https://bvv.sams-ticker.de/api/v1/matchseries/${W}`,
+        `https://bvv.sams-ticker.de/api/matches?matchSeries=${W}`,
+        `https://bvv.sams-ticker.de/api/config`,
+        `https://bvv.sams-ticker.de/data/matches.json`,
+        `https://bvv.sams-ticker.de/api/v1/matches`,
+      ];
+
+      async function probe() {
+        const out = document.getElementById("probe-out");
+        if (!out) return;
+        out.value = "Sondiere " + PROBES.length + " URLs ...\n";
+        for (const url of PROBES) {
+          const line = "→ " + url.replace(KEY, "KEY...").split("?")[0] + "?... ";
+          try {
+            const res = await fetch(url);
+            const text = (await res.text()).slice(0, 900);
+            out.value += line + "[OK " + res.status + "]\n" + text + "\n----\n";
+          } catch (e) {
+            out.value += line + "[FEHLER: " + (e && e.message ? e.message : e) + "]\n----\n";
+          }
+        }
+        out.value += "\n✅ Sondierung fertig. Bitte alles hier kopieren/screenshoten.";
+      }
+      document.getElementById("probe-btn").onclick = probe;
+      setTimeout(probe, 2500);
     </script>
 
     <!-- BVV-Schnittstelle: füllt alle .vapi-Container automatisch -->
