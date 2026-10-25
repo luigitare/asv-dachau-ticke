@@ -73,12 +73,17 @@
       .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; overflow-x: auto; }
       .card.wide { border-radius: 10px; padding: .4rem; overflow: visible; }
       .tickerhead { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; padding: 0 .25rem; }
-      .tickerhead .refresh {
+      .tickerhead .refresh, .tickerhead .pinbtn {
         border: 1px solid #d1d5db; background: #fff; border-radius: 8px;
         padding: .3rem .6rem; font-size: .78rem; cursor: pointer;
       }
-      .ticker-frame { width: 100%; height: 640px; border: none; background: #fff; }
-      .pinrow { display: flex; gap: .4rem; margin-bottom: .5rem; padding: 0 .25rem; flex-wrap: wrap; align-items: center; }
+      .tickerhead .pinbtn.active { background: #eff6ff; border-color: #2563eb; }
+
+      /* Pin-Bereich: klappt nur bei Bedarf auf */
+      .pinwrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease; margin: 0 0 .2rem; }
+      .pinwrap.open { grid-template-rows: 1fr; }
+      .pinwrap > div { overflow: hidden; }
+      .pinrow { display: flex; gap: .4rem; margin: 0 0 .4rem; padding: 0 .25rem; flex-wrap: wrap; align-items: center; }
       .pinrow input {
         flex: 1; min-width: 200px; border: 1px solid #d1d5db; border-radius: 8px;
         padding: .35rem .5rem; font-size: .78rem;
@@ -87,7 +92,12 @@
         border: 1px solid #d1d5db; background: #fff; border-radius: 8px;
         padding: .35rem .6rem; font-size: .78rem; cursor: pointer;
       }
-      .pinrow .hint { font-size: .72rem; color: #9ca3af; width: 100%; }
+      .pinrow .hint {
+        width: 100%; font-size: .78rem; line-height: 1.45; color: #374151;
+        background: #f3f4f6; border-radius: 8px; padding: .5rem .6rem;
+      }
+      .pinrow .hint b { color: #1e3a8a; }
+      .ticker-frame { width: 100%; height: 640px; border: none; background: #fff; }
       .fallback { margin-top: .6rem; font-size: .82rem; color: #6b7280; display: none; }
       .fallback a { color: #1e3a8a; }
       .note { font-size: .78rem; color: #9ca3af; margin-top: 1rem; }
@@ -300,14 +310,19 @@
             <div class="card wide">
               <div class="tickerhead">
                 <span style="font-size:.82rem; color:#6b7280;">BVV Live-Ticker</span>
-                <button class="refresh" title="Ticker neu laden">🔄 neu laden</button>
+                <span style="display:flex; gap:.4rem;">
+                  <button class="pinbtn" title="Spiel-Detail-Link anpinnen">📌 Pin</button>
+                  <button class="refresh" title="Ticker neu laden">🔄 neu laden</button>
+                </span>
               </div>
-              <div class="pinrow">
-                <input type="url" placeholder="Spiel-Detail-Link anpinnen: https://bvv.sams-ticker.de/detail/…" />
-                <button class="pinsave">📌 anpinnen</button>
-                <button class="pinclear">✕</button>
-                <span class="hint"></span>
-              </div>
+              <div class="pinwrap"><div>
+                <div class="pinrow">
+                  <input type="url" placeholder="Hier Spiel-Link einfügen (bvv.sams-ticker.de/detail/…)" />
+                  <button class="pinsave">anpinnen</button>
+                  <button class="pinclear">✕</button>
+                  <span class="hint"></span>
+                </div>
+              </div></div>
               <iframe class="ticker-frame" title="BVV Live-Ticker ${t.league}" allow="fullscreen"></iframe>
               <p class="fallback">
                 Der Ticker lässt sich hier nicht direkt einbetten –
@@ -354,21 +369,37 @@
         };
 
         // Pin: Spiel-Detail-URL pro Team speichern/löschen
+        // (per 📌-Knopf aufklappbar, damit die Oberfläche ruhig bleibt)
+        const pinWrap = el.querySelector(".pinwrap");
+        const pinBtn = el.querySelector(".pinbtn");
         const pinInput = el.querySelector(".pinrow input");
         const pinHint = el.querySelector(".pinrow .hint");
         const setPinHint = () => {
           const p = pinOf(t.idx);
-          pinHint.textContent = p ? "📌 Angepinnt: " + p.replace("https://bvv.sams-ticker.de/", "") : "Ohne Pin wird die Liga-Ansicht geladen.";
+          pinBtn.classList.toggle("active", !!p);
+          // Solange ein Pin gesetzt ist, bleibt der Bereich offen sichtbar
+          pinWrap.classList.toggle("open", !!p);
+          pinHint.innerHTML = p
+            ? "📌 Dieses Spiel ist angepinnt: <b>" + p.replace("https://bvv.sams-ticker.de/", "") + "</b> – der Ticker zeigt es direkt an. Mit ✕ entfernen."
+            : "📋 <b>So fixierst du ein bestimmtes Spiel:</b><br>1. Im Ticker auf das Spiel tippen (bzw. Spielstand lange drücken → „Link kopieren“ / „URL kopieren“).<br>2. Den kopierten Link hier einfügen und „anpinnen“.<br>Der Ticker zeigt dann genau dieses Spiel statt der ganzen Liga – ideal am Spieltag. 📌";
         };
         setPinHint();
+        pinBtn.onclick = () => {
+          // ohne Pin: ein-/ausklappen; mit Pin: immer sichtbar (schließen nur via ✕)
+          if (pinOf(t.idx)) return;
+          pinWrap.classList.toggle("open");
+        };
         el.querySelector(".pinsave").onclick = () => {
-          const v = pinInput.value.trim();
+          let v = pinInput.value.trim();
+          // Großzügig sein: auch ohne "https://" eingefügte Links akzeptieren
+          if (/^bvv\.sams-ticker\.de\/detail\/.+/.test(v)) v = "https://" + v;
           if (!/^https:\/\/bvv\.sams-ticker\.de\/detail\/.+/.test(v)) {
-            pinHint.textContent = "⚠️ Das sieht nicht nach einem Spiel-Detail-Link aus (muss mit https://bvv.sams-ticker.de/detail/… beginnen).";
+            pinHint.textContent = "⚠️ Das sieht nicht nach einem Spiel-Link aus. Er sollte mit bvv.sams-ticker.de/detail/… beginnen (z. B. durch „URL kopieren“ im Ticker).";
             return;
           }
           setPin(t.idx, v);
           setPinHint();
+          pinWrap.classList.remove("open");
           const f = el.querySelector(".ticker-frame");
           f.src = "about:blank";
           setTimeout(() => { f.src = v; }, 50);
