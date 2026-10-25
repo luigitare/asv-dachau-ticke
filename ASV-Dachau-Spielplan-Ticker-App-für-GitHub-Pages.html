@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ASV Dachau Volleyball – Spielplan &amp; Live-Ticker</title>
+    <style>
+      :root { font-family: Inter, system-ui, -apple-system, sans-serif; color: #111827; background: #f4f6f8; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 1rem; }
+      header { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+      .logo {
+        width: 42px; height: 42px; border-radius: 50%;
+        background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+        color: #fff; display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: .8rem;
+      }
+      h1 { font-size: 1.15rem; margin: 0; }
+      .sub { color: #6b7280; font-size: .85rem; }
+      .tabs { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+      .tab {
+        border: 1px solid #d1d5db; background: #fff; border-radius: 999px;
+        padding: .35rem .85rem; font-size: .85rem; cursor: pointer;
+      }
+      .tab.active { background: #1e3a8a; border-color: #1e3a8a; color: #fff; }
+      .panel { display: none; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; overflow-x: auto; }
+      .panel.active { display: block; }
+      .panel h2 { font-size: 1rem; margin: 0 0 .75rem; }
+      .note { font-size: .78rem; color: #9ca3af; margin-top: 1rem; }
+
+      /* styling, das die Schnittstelle in die Tabellen schreibt */
+      .vapi table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+      .vapi th, .vapi td { border: 1px solid #e5e7eb; padding: .35rem .5rem; text-align: left; white-space: nowrap; }
+      .vapi th { background: #f1f5f9; }
+      .vapi tr.marked td { background: #eff6ff; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo">ASV</div>
+      <div>
+        <h1>ASV Dachau Volleyball – Spielplan &amp; Live-Ticker</h1>
+        <div class="sub">Nur unsere Teams – Daten automatisch vom BVV-Ergebnisdienst</div>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-panel="p-u16">U16 weiblich</button>
+      <button class="tab" data-panel="p-bl2m">2. Bundesliga Süd (Männer)</button>
+    </div>
+
+    <!-- ================= TEAM 1: U16 weiblich ================= -->
+    <div class="panel active" id="p-u16">
+      <h2>U16 Bezirksliga weiblich – ASV Dachau II</h2>
+      <div class="vapi"
+           data-wettbewerb="c7a7d183-b089-47c4-a0b8-cf7c625acf4a"
+           data-typ="spiele"
+           data-vapi-teams="[9d1d1f61-f8a9-4119-a96f-5db53f20c8e4]"
+           data-vapi-teamfilter="[9d1d1f61-f8a9-4119-a96f-5db53f20c8e4]"
+           data-vapi-heimspielkennzeichen="(H)">
+      </div>
+    </div>
+
+    <!-- ============ TEAM 2: 2. Bundesliga Süd Männer ============ -->
+    <div class="panel" id="p-bl2m">
+      <h2>2. Bundesliga Süd – ASV Dachau (Männer)</h2>
+      <div class="vapi"
+           data-wettbewerb="0aef379f-c42c-46a4-95e0-60e4ad7ba214"
+           data-typ="spiele"
+           data-vapi-teams="[82ec9fd4-c6ed-4149-ac4d-dc1a33486b13]"
+           data-vapi-teamfilter="[82ec9fd4-c6ed-4149-ac4d-dc1a33486b13]"
+           data-vapi-heimspielkennzeichen="(H)">
+      </div>
+    </div>
+
+    <p class="note">
+      Datenquelle: BVV-Ergebnisschnittstelle (api.volleyball-bayern.de) – Aktualisierung beim Seitenaufruf,
+      kein manuelles Eintragen nötig.
+    </p>
+
+    <!-- ================================================================
+         WICHTIG: Eigene Team-Panels nach demselben Muster ergänzen:
+         Wettbewerb-Id und Team-Id aus dem BVV-Portal (Hallenergebnisse)
+         kopieren, Button in der Tab-Leiste ergänzen. Ganz unten bei
+         CONFIG steht nichts – die IDs stehen direkt in den divs oben.
+         ================================================================ -->
+
+    <!-- BVV-Schnittstelle: HIER DEINEN API-KEY EINFÜGEN -->
+    <script src="https://api.volleyball-bayern.de/jsi/volley.js.php?key=ff8671c3-ef58-433d-93c5-0f1e580c4347"></script>
+
+    <script>
+      // Tab-Umschaltung (nur Anzeige, beide Container bleiben im DOM,
+      // damit die BVV-Skript-Inhalte beim Laden gefüllt werden)
+      const tabs = document.querySelectorAll(".tab");
+      tabs.forEach((t) => {
+        t.addEventListener("click", () => {
+          tabs.forEach((x) => x.classList.remove("active"));
+          t.classList.add("active");
+          document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+          document.getElementById(t.dataset.panel).classList.add("active");
+        });
+      });
+    </script>
+  </body>
+</html>
