@@ -13,13 +13,31 @@
       h1 { font-size: .95rem; margin: 0; display: inline; }
       .sub { color: #6b7280; font-size: .78rem; margin-left: .35rem; }
 
-      .filterrow { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .5rem; align-items: center; }
-      .filterrow .rowlabel { font-size: .72rem; color: #9ca3af; width: 100%; }
+      .filterrow { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .4rem; align-items: center; }
+      .filterrow .rowlabel { font-size: .7rem; color: #9ca3af; width: 100%; margin-bottom: -.15rem; }
       .chip {
         border: 1px solid #d1d5db; background: #fff; border-radius: 999px;
-        padding: .35rem .8rem; font-size: .82rem; cursor: pointer;
+        padding: .3rem .7rem; font-size: .8rem; cursor: pointer;
       }
       .chip.active { background: #1e3a8a; border-color: #1e3a8a; color: #fff; }
+
+      /* Auswahl: eine Zeile mit 3 Knöpfen + aufklappende Optionen */
+      .selrow { display: flex; gap: .4rem; margin-bottom: .4rem; }
+      .selchip {
+        flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center;
+        border: 1px solid #d1d5db; background: #fff; border-radius: 10px;
+        padding: .3rem .4rem; font-size: .8rem; cursor: pointer;
+      }
+      .selchip .lvl { font-size: .6rem; color: #9ca3af; text-transform: uppercase; letter-spacing: .05em; }
+      .selchip .val { font-weight: 600; color: #1e3a8a; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .selchip.empty .val { color: #c3cbd6; font-weight: 400; }
+      .selchip.open { background: #eff6ff; border-color: #2563eb; }
+      .selchip:disabled { opacity: .45; cursor: default; }
+
+      .panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .28s ease; }
+      .panel.open { grid-template-rows: 1fr; }
+      .panel > div { overflow: hidden; }
+      .panel .filterrow { margin: 0 0 .4rem; padding-top: .1rem; }
 
       .teamview { margin-top: .75rem; }
       .teamtitle { font-size: 1rem; font-weight: 700; margin: .25rem 0 .5rem; }
@@ -79,12 +97,9 @@
       </div>
     </header>
 
-    <!-- Stufe 1: Kategorie -->
-    <div class="filterrow" id="catRow"></div>
-    <!-- Stufe 2: Mannschaft / Altersklasse -->
-    <div class="filterrow" id="grpRow"></div>
-    <!-- Stufe 3: konkretes Team / Wettbewerb -->
-    <div class="filterrow" id="entryRow"></div>
+    <!-- Auswahl: eine Zeile mit 3 Knöpfen, Optionen klappen darunter auf -->
+    <div class="selrow" id="selRow"></div>
+    <div class="panel" id="panel"><div><div class="filterrow" id="optRow"></div></div></div>
 
     <div class="teamview" id="teamview"></div>
 
@@ -96,9 +111,27 @@
     <script>
       // ================================================================
       // KONFIGURATION – alle Mannschaften (BVV-Portal: Hallenergebnisse)
-      // cat:   h = Herren, d = Damen, jm = Jugend m, jw = Jugend w, mix = Mixed
+      // cat:   h = Herren, d = Damen, jm = Jugend m, jw = Jugend w
       // grp:   Stufe-2-Filter (Mannschafts-Nr. bzw. Altersklasse)
-      // chip:  Beschriftung Stufe 3 (optional, Default: Wettbewerb/Team)
+      // chip:  Beschriftung Stufe 3 (optional, Default: Team-Name kurz)
+      //
+      // 🛠 NEUE MANNSCHAFT HINZUFÜGEN (z. B. neue U16-1-Mannschaft):
+      //   1. BVV-Portal → Digitales → Vereinshomepage → Hallenergebnisse
+      //   2. Dort die Zeile des neuen Teams suchen und kopieren:
+      //      "Wettbewerb Id" → wettbewerb | "Team Id" → teamId
+      //   3. Hier eine Zeile ergänzen (am besten eine ähnliche Zeile
+      //      kopieren und die Werte anpassen), z. B.:
+      //   { cat: "jw", grp: "U16", team: "ASV Dachau III", league: "U16 Bezirksliga weiblich", wettbewerb: "<Wettbewerb-Id>", teamId: "<Team-Id>" },
+      //   4. Fertig – alles andere (Ticker, Spielplan, Tabelle,
+      //      Filter, Auswahl-Gedächtnis) passiert automatisch.
+      //
+      // 🏆 MEISTERSCHAFTEN AB JANUAR (KM / OBB / Südbayrische /
+      //    Bayerische Meisterschaft): erscheinen im Portal nach und
+      //    nach pro Team. Einfach unter der passenden Altersklasse
+      //    (grp) eine Zeile ergänzen und mit "chip" kurz benennen,
+      //    damit Liga und Meisterschaft nebeneinander wählbar sind:
+      //   { cat: "jm", grp: "U16", team: "ASV Dachau II", chip: "OBB-M", league: "OBB Meisterschaft U16 männlich", wettbewerb: "<Wettbewerb-Id>", teamId: "<Team-Id>" },
+      //    Die alte Liga-Zeile kann bleiben (Saison endet ja im Januar).
       // ================================================================
       const CONFIG = [
         // ---------------- HERREN ----------------
@@ -222,9 +255,6 @@
       }
 
       // ---------------- Views vorbereiten ----------------
-      const catRow = document.getElementById("catRow");
-      const grpRow = document.getElementById("grpRow");
-      const entryRow = document.getElementById("entryRow");
       const teamview = document.getElementById("teamview");
 
       // Für jeden Config-Eintrag einen (versteckten) Container bauen.
@@ -333,46 +363,6 @@
         };
       });
 
-      // ---------------- Filter-Chips rendern ----------------
-      function chip(label, active, onclick) {
-        const b = document.createElement("button");
-        b.className = "chip" + (active ? " active" : "");
-        b.textContent = label;
-        b.onclick = onclick;
-        return b;
-      }
-
-      function renderCatRow() {
-        catRow.innerHTML = '<div class="rowlabel">1 · Bereich</div>';
-        CATS.forEach((c) => {
-          catRow.appendChild(chip(c.label, state.cat === c.id, () => {
-            state.cat = c.id;
-            // letzte Altersklasse dieses Bereichs wiederherstellen
-            const g = state.lastGrpByCat[c.id];
-            state.grp = (g && grpsOfCat(c.id).includes(g)) ? g : null;
-            // zuletzt gewähltes Team dieser Altersklasse wiederherstellen
-            state.entry = state.grp !== null
-              ? (state.lastEntryByGrp[c.id + "|" + state.grp] ?? null)
-              : null;
-            renderAll();
-          }));
-        });
-      }
-
-      function renderGrpRow() {
-        grpRow.innerHTML = '<div class="rowlabel">2 · Mannschaft / Altersklasse</div>';
-        if (state.cat === null) return;
-        grpsOfCat(state.cat).forEach((g) => {
-          grpRow.appendChild(chip(g, state.grp === g, () => {
-            state.grp = g;
-            rememberGrp(state.cat, g);
-            // zuletzt gewähltes Team dieser Altersklasse wiederherstellen
-            state.entry = state.lastEntryByGrp[state.cat + "|" + g] ?? null;
-            renderAll();
-          }));
-        });
-      }
-
       // Kurz-Label für Stufe 3: "ASV Dachau III" -> "ASV III" usw.
       const shortLabel = (team) => team
         .replace("ASV Dachau U18 m II", "ASV U18 II")
@@ -386,17 +376,92 @@
         .replace("ASV Dachau II", "ASV II")
         .replace("ASV Dachau", "ASV I");
 
-      function renderEntryRow() {
-        entryRow.innerHTML = '<div class="rowlabel">3 · Team / Wettbewerb</div>';
-        if (state.grp === null) return;
-        CONFIG.filter((e) => e.cat === state.cat && e.grp === state.grp).forEach((e) => {
-          const label = e.chip || shortLabel(e.team);
-          entryRow.appendChild(chip(label, state.entry === e.idx, () => {
-            state.entry = e.idx;
-            rememberEntry(state.cat, state.grp, e.idx);
-            renderAll();
-          }));
-        });
+      // ---------------- Auswahl: 1 Zeile, 3 Knöpfe + aufklappbare Optionen ----------------
+      // openLevel: null = zu, 1 = Bereich offen, 2 = Altersklasse offen, 3 = Team offen
+      let openLevel = state.entry === null ? (state.cat === null ? 1 : 3) : null;
+      const selRow = document.getElementById("selRow");
+      const panel = document.getElementById("panel");
+      const optRow = document.getElementById("optRow");
+
+      function chip(label, active, onclick) {
+        const b = document.createElement("button");
+        b.className = "chip" + (active ? " active" : "");
+        b.textContent = label;
+        b.onclick = onclick;
+        return b;
+      }
+
+      function grpsOfCat(cat) {
+        const set = [...new Set(CONFIG.filter((e) => e.cat === cat).map((e) => e.grp))];
+        const order = GRP_ORDER[cat];
+        set.sort((a, b) => order ? order.indexOf(a) - order.indexOf(b) : a.localeCompare(b, "de", { numeric: true }));
+        return set;
+      }
+
+      function currentEntryLabel() {
+        if (state.entry === null) return null;
+        const e = CONFIG[state.entry];
+        return e.chip || shortLabel(e.team);
+      }
+
+      function selBtn(lvlLabel, value, isOpen, disabled, onclick) {
+        const b = document.createElement("button");
+        b.className = "selchip" + (isOpen ? " open" : "") + (value ? "" : " empty");
+        b.disabled = !!disabled;
+        b.innerHTML = '<span class="lvl">' + lvlLabel + '</span><span class="val">' + (value || "—") + '</span>';
+        b.onclick = onclick;
+        return b;
+      }
+
+      function renderSelRow() {
+        const catLabel = state.cat ? CATS.find((c) => c.id === state.cat).label : null;
+        const entryLabel = currentEntryLabel();
+        selRow.innerHTML = "";
+        selRow.appendChild(selBtn("Bereich", catLabel, openLevel === 1, false,
+          () => { openLevel = openLevel === 1 ? null : 1; renderAll(); }));
+        selRow.appendChild(selBtn("Mannschaft", state.grp, openLevel === 2, state.cat === null,
+          () => { openLevel = openLevel === 2 ? null : 2; renderAll(); }));
+        selRow.appendChild(selBtn("Team", entryLabel, openLevel === 3, state.grp === null,
+          () => { openLevel = openLevel === 3 ? null : 3; renderAll(); }));
+      }
+
+      function renderOptions() {
+        optRow.innerHTML = "";
+        if (openLevel === null) { panel.classList.remove("open"); return; }
+        panel.classList.add("open");
+        if (openLevel === 1) {
+          CATS.forEach((c) => {
+            optRow.appendChild(chip(c.label, state.cat === c.id, () => {
+              state.cat = c.id;
+              const g = state.lastGrpByCat[c.id];
+              state.grp = (g && grpsOfCat(c.id).includes(g)) ? g : null;
+              state.entry = state.grp !== null ? (state.lastEntryByGrp[c.id + "|" + state.grp] ?? null) : null;
+              // nächste Stufe öffnen (oder zu, wenn Team schon wiederhergestellt)
+              openLevel = state.entry !== null ? null : 2;
+              renderAll();
+            }));
+          });
+        } else if (openLevel === 2) {
+          grpsOfCat(state.cat).forEach((g) => {
+            optRow.appendChild(chip(g, state.grp === g, () => {
+              state.grp = g;
+              rememberGrp(state.cat, g);
+              state.entry = state.lastEntryByGrp[state.cat + "|" + g] ?? null;
+              openLevel = state.entry !== null ? null : 3; // Team direkt öffnen falls noch keins gemerkt
+              renderAll();
+            }));
+          });
+        } else if (openLevel === 3) {
+          CONFIG.filter((e) => e.cat === state.cat && e.grp === state.grp).forEach((e) => {
+            const label = e.chip || shortLabel(e.team);
+            optRow.appendChild(chip(label, state.entry === e.idx, () => {
+              state.entry = e.idx;
+              rememberEntry(state.cat, state.grp, e.idx);
+              openLevel = null; // Auswahl fertig -> zuklappen
+              renderAll();
+            }));
+          });
+        }
       }
 
       function grpsOfCat(cat) {
@@ -438,14 +503,13 @@
 
       function renderAll() {
         // Gespeicherte Auswahl validieren: existiert der Eintrag noch?
-        if (state.entry !== null && !CONFIG[state.entry]) { state.entry = null; state.grp = null; state.cat = null; }
+        if (state.entry !== null && !CONFIG[state.entry]) { state.entry = null; state.grp = null; state.cat = null; openLevel = 1; }
         if (state.entry !== null) {
           const e = CONFIG[state.entry];
           if (e.cat !== state.cat || e.grp !== state.grp) { state.entry = null; }
         }
-        renderCatRow();
-        renderGrpRow();
-        renderEntryRow();
+        renderSelRow();
+        renderOptions();
         showEntry();
         renderPlaceholder();
         saveState();
