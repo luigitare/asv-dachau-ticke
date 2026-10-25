@@ -206,12 +206,20 @@
       // Beim Start: nichts ausgewählt. Falls gespeichert, wird die
       // letzte Auswahl aus dem localStorage wiederhergestellt
       // (überlebt Tab schließen & Browser-Neustart, ohne Cookie-Alarm).
-      let state = { cat: null, grp: null, entry: null };
+      let state = { cat: null, grp: null, entry: null, lastGrpByCat: {}, lastEntryByGrp: {} };
       const STORE_KEY = "asv-dachau-auswahl-v1";
       try {
         const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
-        if (saved && typeof saved === "object") state = saved;
+        if (saved && typeof saved === "object") state = Object.assign(
+          { cat: null, grp: null, entry: null, lastGrpByCat: {}, lastEntryByGrp: {} }, saved
+        );
       } catch (e) { /* ignorieren */ }
+
+      function rememberGrp(cat, grp) { state.lastGrpByCat[cat] = grp; }
+      function rememberEntry(cat, grp, idx) {
+        state.lastEntryByGrp[cat + "|" + grp] = idx;
+        rememberGrp(cat, grp);
+      }
 
       function saveState() {
         try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* ignorieren */ }
@@ -343,8 +351,13 @@
         CATS.forEach((c) => {
           catRow.appendChild(chip(c.label, state.cat === c.id, () => {
             state.cat = c.id;
-            state.grp = null;
-            state.entry = null;
+            // letzte Altersklasse dieses Bereichs wiederherstellen
+            const g = state.lastGrpByCat[c.id];
+            state.grp = (g && grpsOfCat(c.id).includes(g)) ? g : null;
+            // zuletzt gewähltes Team dieser Altersklasse wiederherstellen
+            state.entry = state.grp !== null
+              ? (state.lastEntryByGrp[c.id + "|" + state.grp] ?? null)
+              : null;
             renderAll();
           }));
         });
@@ -356,7 +369,9 @@
         grpsOfCat(state.cat).forEach((g) => {
           grpRow.appendChild(chip(g, state.grp === g, () => {
             state.grp = g;
-            state.entry = null;
+            rememberGrp(state.cat, g);
+            // zuletzt gewähltes Team dieser Altersklasse wiederherstellen
+            state.entry = state.lastEntryByGrp[state.cat + "|" + g] ?? null;
             renderAll();
           }));
         });
@@ -382,6 +397,7 @@
           const label = e.chip || shortLabel(e.team);
           entryRow.appendChild(chip(label, state.entry === e.idx, () => {
             state.entry = e.idx;
+            rememberEntry(state.cat, state.grp, e.idx);
             renderAll();
           }));
         });
