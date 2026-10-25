@@ -77,7 +77,9 @@
         border: 1px solid #d1d5db; background: #fff; border-radius: 8px;
         padding: .3rem .6rem; font-size: .78rem; cursor: pointer;
       }
-      .tickerhead .pinbtn.active { background: #eff6ff; border-color: #2563eb; }
+      .tickerhead .pinbtn.active {
+        background: #1e3a8a; border-color: #1e3a8a; color: #fff; font-weight: 700;
+      }
 
       /* Pin-Bereich: klappt nur bei Bedarf auf */
       .pinwrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease; margin: 0 0 .2rem; }
@@ -384,11 +386,7 @@
             : "📋 <b>So fixierst du ein bestimmtes Spiel:</b><br>1. Im Ticker auf das Spiel tippen (bzw. Spielstand lange drücken → „Link kopieren“ / „URL kopieren“).<br>2. Den kopierten Link hier einfügen und „anpinnen“.<br>Der Ticker zeigt dann genau dieses Spiel statt der ganzen Liga – ideal am Spieltag. 📌";
         };
         setPinHint();
-        pinBtn.onclick = () => {
-          // ohne Pin: ein-/ausklappen; mit Pin: immer sichtbar (schließen nur via ✕)
-          if (pinOf(t.idx)) return;
-          pinWrap.classList.toggle("open");
-        };
+        pinBtn.onclick = () => pinWrap.classList.toggle("open");
         el.querySelector(".pinsave").onclick = () => {
           let v = pinInput.value.trim();
           // Großzügig sein: auch ohne "https://" eingefügte Links akzeptieren
@@ -399,7 +397,6 @@
           }
           setPin(t.idx, v);
           setPinHint();
-          pinWrap.classList.remove("open");
           const f = el.querySelector(".ticker-frame");
           f.src = "about:blank";
           setTimeout(() => { f.src = v; }, 50);
