@@ -46,10 +46,13 @@
 
       /* styling, das die BVV-Schnittstelle in die Tabellen schreibt */
       .vapi table { border-collapse: collapse; width: 100%; font-size: .85rem; }
-      .vapi th, .vapi td { border: 1px solid #e5e7eb; padding: .35rem .5rem; text-align: left; white-space: nowrap; }
+      .vapi th, .vapi td { border: 1px solid #e5e7eb; padding: .35rem .5rem; text-align: left; white-space: nowrap; display: table-cell !important; }
       .vapi th { background: #f1f5f9; }
       .vapi tr.marked td { background: #eff6ff; font-weight: 600; }
       .vapi tr.eigenesheimspiel td { background: #fefce8; }
+      /* Team-Spalten dürfen nie ausgeblendet werden (auch nicht durch
+         mitgeladenes CSS der Schnittstelle auf kleinen Displays) */
+      .vapi .team, .vapi .teama, .vapi .teamb { display: table-cell !important; max-width: 45vw; white-space: normal !important; }
     </style>
   </head>
   <body>
@@ -68,6 +71,11 @@
       Datenquelle: BVV-Ergebnisschnittstelle (api.volleyball-bayern.de) ·
       Live-Ticker: bvv.sams-ticker.de (Matchseries-UUID = Wettbewerbs-Id aus dem BVV-Portal).
     </p>
+
+    <details style="margin-top:1.5rem; background:#fff; border:1px dashed #9ca3af; border-radius:8px; padding:.75rem;">
+      <summary style="cursor:pointer; font-weight:600; font-size:.85rem;">🔧 Debug-Ausgabe (vorübergehend)</summary>
+      <textarea id="debug-out" readonly style="width:100%; height:180px; font-size:.7rem; font-family:monospace;"></textarea>
+    </details>
 
     <script>
       // ================================================================
@@ -194,6 +202,18 @@
           catch (e) { f.parentElement.querySelector(".fallback").style.display = "block"; }
         });
       }, 5000);
+
+      // Debug: gefüllte Tabellen einsammeln (vorübergehend)
+      function dumpDebug() {
+        const parts = [];
+        document.querySelectorAll(".vapi").forEach((el, i) => {
+          parts.push("=== Container " + (i + 1) + " ===\n" + el.innerHTML);
+        });
+        const out = document.getElementById("debug-out");
+        if (out) out.value = parts.join("\n\n").slice(0, 50000);
+      }
+      setTimeout(dumpDebug, 3000);
+      setTimeout(dumpDebug, 8000);
     </script>
 
     <!-- BVV-Schnittstelle: füllt alle .vapi-Container automatisch -->
