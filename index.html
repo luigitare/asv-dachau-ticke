@@ -50,6 +50,10 @@
       .vapi th { background: #f1f5f9; }
       .vapi tr.marked td { background: #eff6ff; font-weight: 600; }
       .vapi tr.eigenesheimspiel td { background: #fefce8; }
+      /* Spielplan-Zeilen klickbar (öffnen BVV-Spieldetail mit Live-Ticker) */
+      .vapi tr.spiel { cursor: pointer; }
+      .vapi tr.spiel:hover td { background: #dbeafe; }
+      .vapi tr.spiel:hover td a { color: #1e3a8a; font-weight: 600; }
       /* Team-Spalten dürfen nie ausgeblendet werden (auch nicht durch
          mitgeladenes CSS der Schnittstelle auf kleinen Displays) */
       .vapi .team, .vapi .teama, .vapi .teamb { display: table-cell !important; max-width: 45vw; white-space: normal !important; }
@@ -96,6 +100,12 @@
       ];
 
       const TICKER_BASE = "https://bvv.sams-ticker.de/matchseries/";
+      // Basis-URL der BVV-Spieldetail-Seite: wird um die numerische
+      // Spiel-ID ergänzt (data-vapi-spielid). Die Seite enthält u.a.
+      // Halle, Schiris und den LIVE-Ticker-Knopf.
+      const SPIELDETAIL_BASE = "https://volleyball.bayern/ergebnisse/jugend/ueberbezirkliche-meisterschaften/spiel-";
+      // Hinweis: für Erwachsenen-Ligen evtl. anderer Pfad – dann pro
+      // Team ein "detailBase" im CONFIG-Eintrag setzen.
 
       // ---------- UI aus der Konfiguration bauen ----------
       const teambar = document.getElementById("teambar");
@@ -198,6 +208,23 @@
           setTimeout(() => { frame.src = src; }, 50);
         }
       }
+
+      // Spielplan-Zeilen klickbar machen, sobald die BVV-Schnittstelle
+      // sie gefüllt hat: jede Zeile öffnet die BVV-Spieldetail-Seite
+      // (mit Halle, Schiedsrichtern und LIVE-Ticker-Knopf).
+      function linkifySchedules() {
+        document.querySelectorAll(".vapi tr.spiel").forEach((row) => {
+          if (row.dataset.linkified) return;
+          const id = row.getAttribute("data-vapi-spielid");
+          if (!id) return;
+          row.dataset.linkified = "1";
+          row.title = "Spieldetails & Live-Ticker öffnen";
+          row.addEventListener("click", () => {
+            window.open(SPIELDETAIL_BASE + id, "_blank", "noopener");
+          });
+        });
+      }
+      setInterval(linkifySchedules, 1500);
 
       // Fallback erkennen: Wenn der Ticker das Einbetten sperrt
       setTimeout(() => {
