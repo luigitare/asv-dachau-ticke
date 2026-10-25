@@ -538,7 +538,11 @@
         // Öffnen immer sieht
         if (state.entry !== null) {
           const e = CONFIG[state.entry];
-          menuBtnLabel.textContent = (state.grp || "") + " · " + (e.chip || shortLabel(e.team));
+          const cat = CATS.find((c) => c.id === state.cat);
+          menuBtnLabel.textContent = (cat ? cat.label + " · " : "") + (state.grp || "") + " · " + (e.chip || shortLabel(e.team));
+        } else if (state.cat !== null || state.grp !== null) {
+          const cat = CATS.find((c) => c.id === state.cat);
+          menuBtnLabel.textContent = [cat ? cat.label : "", state.grp || ""].filter(Boolean).join(" · ") || "Menü";
         } else {
           menuBtnLabel.textContent = "Menü";
         }
