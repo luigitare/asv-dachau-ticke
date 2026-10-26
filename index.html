@@ -8,28 +8,14 @@
       :root { font-family: Inter, system-ui, -apple-system, sans-serif; color: #111827; background: #f4f6f8; }
       * { box-sizing: border-box; }
       body { margin: 0; padding: .75rem; }
-      .topbar { position: relative; z-index: 100; }
-      .topbar header { position: relative; display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; white-space: nowrap; }
-      .tabbarRow { margin-bottom: .5rem; }
-
-      /* Zen-Modus: alles ausblenden, nur Ticker im Vollbild */
-      .hidebtn {
-        border: 1px solid #d1d5db; background: #fff; border-radius: 999px;
-        padding: .35rem .7rem; font-size: .9rem; cursor: pointer;
+      .topbar {
+        position: sticky; top: 0; z-index: 200;
+        background: #f4f6f8; padding-bottom: .2rem;
       }
-      body.zen .topbar, body.zen #tabRow, body.zen .note, body.zen .tickerhead { display: none; }
-      body.zen .teamview { margin-top: 0; }
-      body.zen .ticker-frame { height: calc(100vh - 24px); }
-      .zenbar {
-        position: fixed; right: 14px; bottom: 14px; z-index: 300;
-        display: none; flex-direction: column; gap: 8px;
-      }
-      body.zen .zenbar { display: flex; }
-      .fab {
-        width: 46px; height: 46px; border-radius: 999px; border: none;
-        background: #1e3a8a; color: #fff; font-size: 1.05rem; cursor: pointer;
-        box-shadow: 0 4px 14px rgba(0,0,0,.3);
-        display: flex; align-items: center; justify-content: center;
+      .topbar header { position: relative; display: flex; align-items: center; justify-content: space-between; margin-bottom: .4rem; white-space: nowrap; }
+      .tabbarRow {
+        position: sticky; top: 50px; z-index: 199;
+        background: #f4f6f8; padding: .15rem 0 .4rem; margin-bottom: .5rem;
       }
       .logo { height: 40px; width: auto; flex-shrink: 0; display: block; }
       .mpSep { border-top: 1px solid #e5e7eb; margin: .7rem 0 .2rem; }
@@ -97,13 +83,21 @@
       .tabpane.active { display: block; }
       .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; overflow-x: auto; }
       .card.wide { border-radius: 10px; padding: .4rem; overflow: visible; }
-      .tickerhead { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .5rem; padding: 0 .25rem; }
-      .tickerhead .refresh, .tickerhead .pinbtn {
-        border: 1px solid #d1d5db; background: #fff; border-radius: 8px;
-        padding: .3rem .6rem; font-size: .78rem; cursor: pointer;
+      /* Schwebende Steuerung unten rechts (Pin + Neu laden) */
+      .floatbar {
+        position: fixed; right: 14px; bottom: 14px; z-index: 300;
+        display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
       }
-      .tickerhead .pinbtn.active {
-        background: #1e3a8a; border-color: #1e3a8a; color: #fff; font-weight: 700;
+      .fab, .fabbig {
+        border: none; background: #1e3a8a; color: #fff; cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0,0,0,.3);
+        display: flex; align-items: center; justify-content: center;
+      }
+      .fab { width: 46px; height: 46px; border-radius: 999px; font-size: 1.05rem; }
+      .fab.active { outline: 3px solid #93c5fd; }
+      .fabbig {
+        height: 46px; border-radius: 999px; padding: 0 1.1rem; gap: .4rem;
+        font-size: .85rem; font-weight: 600;
       }
 
       /* Pin-Bereich: klappt nur bei Bedarf auf */
@@ -147,7 +141,6 @@
         <!-- Original-Vereinslogo, liegt im Repository neben der index.html -->
         <img class="logo" src="logo_c.svg" alt="ASV Dachau Volleys" />
         <button class="menubtn" id="menuBtn">☰ <span id="menuBtnLabel">Menü</span></button>
-        <button class="hidebtn" id="hideBtn" title="Ausblenden – nur Ticker im Vollbild">⛶</button>
       </header>
 
       <!-- Menü als Overlay: blendet ÜBER den Inhalt -->
@@ -176,13 +169,6 @@
     <!-- Ohne ASV-Filter: nur der BVV-Ticker mit allen Spielen -->
     <div class="entry" id="nofilterview">
       <div class="card wide">
-        <div class="tickerhead">
-          <span style="font-size:.82rem; color:#6b7280;">BVV Live-Ticker · Alle Spiele</span>
-          <span style="display:flex; gap:.4rem;">
-            <button class="pinbtn" id="nfPinBtn" title="Spiel-Detail-Link anpinnen">📌 Pin</button>
-            <button class="refresh" id="nfRefresh" title="Ticker neu laden">🔄 neu laden</button>
-          </span>
-        </div>
         <div class="pinwrap" id="nfPinWrap"><div>
           <div class="pinrow">
             <input type="url" id="nfPinInput" placeholder="Hier Spiel-Link einfügen (bvv.sams-ticker.de/detail/…)" />
@@ -199,11 +185,10 @@
       </div>
     </div>
 
-    <!-- Zen-Modus: schwebende Knöpfe unten rechts (Pin, Neu laden, Zurück) -->
-    <div class="zenbar" id="zenbar">
-      <button class="fab" id="zenPin" title="Spiel anpinnen">📌</button>
-      <button class="fab" id="zenRefresh" title="Ticker neu laden">🔄</button>
-      <button class="fab" id="showBtn" title="Steuerung einblenden">☰</button>
+    <!-- Schwebende Steuerung unten rechts über dem Ticker -->
+    <div class="floatbar">
+      <button class="fab" id="floatPin" title="Spiel anpinnen">📌</button>
+      <button class="fabbig" id="floatReload" title="Ticker neu laden">🔄 neu laden</button>
     </div>
 
     <p class="note">
@@ -372,13 +357,6 @@
         el.innerHTML = `
           <div class="tabpane" id="e-${i}-ticker">
             <div class="card wide">
-              <div class="tickerhead">
-                <span style="font-size:.82rem; color:#6b7280;">BVV Live-Ticker</span>
-                <span style="display:flex; gap:.4rem;">
-                  <button class="pinbtn" title="Spiel-Detail-Link anpinnen">📌 Pin</button>
-                  <button class="refresh" title="Ticker neu laden">🔄 neu laden</button>
-                </span>
-              </div>
               <div class="pinwrap"><div>
                 <div class="pinrow">
                   <input type="url" placeholder="Hier Spiel-Link einfügen (bvv.sams-ticker.de/detail/…)" />
@@ -426,7 +404,8 @@
         renderAll();
       });
 
-        el.querySelector(".refresh").onclick = () => {
+        // Neu laden: wird vom schwebenden Knopf unten rechts ausgelöst
+        el._reload = () => {
           const f = el.querySelector(".ticker-frame");
           const src = targetSrc(t);
           f.src = "about:blank";
@@ -434,14 +413,12 @@
         };
 
         // Pin: Spiel-Detail-URL pro Team speichern/löschen
-        // (per 📌-Knopf aufklappbar, damit die Oberfläche ruhig bleibt)
         const pinWrap = el.querySelector(".pinwrap");
-        const pinBtn = el.querySelector(".pinbtn");
         const pinInput = el.querySelector(".pinrow input");
         const pinHint = el.querySelector(".pinrow .hint");
+        el._pinToggle = () => pinWrap.classList.toggle("open");
         const setPinHint = () => {
           const p = pinOf(t.idx);
-          pinBtn.classList.toggle("active", !!p);
           // Solange ein Pin gesetzt ist, bleibt der Bereich offen sichtbar
           pinWrap.classList.toggle("open", !!p);
           pinHint.innerHTML = p
@@ -449,7 +426,6 @@
             : "📋 <b>So fixierst du ein bestimmtes Spiel:</b><br>1. Im Ticker auf das Spiel tippen (bzw. Spielstand lange drücken → „Link kopieren“ / „URL kopieren“).<br>2. Den kopierten Link hier einfügen und „anpinnen“.<br>Der Ticker zeigt dann genau dieses Spiel statt der ganzen Liga – ideal am Spieltag. 📌";
         };
         setPinHint();
-        pinBtn.onclick = () => pinWrap.classList.toggle("open");
         el.querySelector(".pinsave").onclick = () => {
           let v = pinInput.value.trim();
           // Großzügig sein: auch ohne "https://" eingefügte Links akzeptieren
@@ -500,34 +476,51 @@
       // Ohne ASV-Filter: nur der BVV-Ticker mit allen Spielen
       const noFilterView = document.getElementById("nofilterview");
       const nfFrame = document.getElementById("nfFrame");
+      const floatPin = document.getElementById("floatPin");
+      const floatReload = document.getElementById("floatReload");
+      const floatBar = document.querySelector(".floatbar");
+      // Schwebende Knöpfe: nur in der Ticker-Ansicht sinnvoll
+      function updateFloatbar() {
+        const tickerActive = state.noFilter
+          || (state.entry !== null && (state.tab || "ticker") === "ticker");
+        floatBar.style.display = tickerActive ? "flex" : "none";
+      }
+      // Schwebende Knöpfe wirken auf die gerade aktive Ansicht
+      floatPin.onclick = () => {
+        const act = document.querySelector(".entry.active");
+        if (act && act._pinToggle) act._pinToggle();
+      };
+      floatReload.onclick = () => {
+        const act = document.querySelector(".entry.active");
+        if (act && act._reload) act._reload();
+      };
       document.getElementById("noFilterBtn").onclick = () => {
         state.noFilter = true;
         state.cat = null; state.grp = null; state.entry = null;
         menuOpen = false;
         renderAll();
       };
-      document.getElementById("nfRefresh").onclick = () => {
+      noFilterView._reload = () => {
         nfFrame.src = "about:blank";
         setTimeout(() => { nfFrame.src = nfTargetSrc(); }, 50);
       };
 
       // Pin für die "Ohne ASV-Filter"-Ansicht (eigener Speicherplatz)
       const nfPinWrap = document.getElementById("nfPinWrap");
-      const nfPinBtn = document.getElementById("nfPinBtn");
       const nfPinInput = document.getElementById("nfPinInput");
       const nfPinHint = document.getElementById("nfPinHint");
+      noFilterView._pinToggle = () => nfPinWrap.classList.toggle("open");
       const NF_URL = "https://bvv.sams-ticker.de/";
       function nfTargetSrc() { return pinOf("nofilter") || NF_URL; }
       function nfSetPinHint() {
         const p = pinOf("nofilter");
-        nfPinBtn.classList.toggle("active", !!p);
+        // Solange ein Pin gesetzt ist, bleibt der Bereich offen sichtbar
         nfPinWrap.classList.toggle("open", !!p);
         nfPinHint.innerHTML = p
           ? "📌 Dieses Spiel ist angepinnt: <b>" + p.replace("https://bvv.sams-ticker.de/", "") + "</b> – der Ticker zeigt es direkt an. Mit ✕ entfernen."
             : "📋 <b>So fixierst du ein bestimmtes Spiel:</b><br>1. Im Ticker auf das Spiel tippen (bzw. Spielstand lange drücken → „Link kopieren“ / „URL kopieren“).<br>2. Den kopierten Link hier einfügen und „anpinnen“.<br>Der Ticker zeigt dann genau dieses Spiel – auch fremde Vereine. 📌";
       }
       nfSetPinHint();
-      nfPinBtn.onclick = () => nfPinWrap.classList.toggle("open");
       document.getElementById("nfPinSave").onclick = () => {
         let v = nfPinInput.value.trim();
         if (/^bvv\.sams-ticker\.de\/detail\/.+/.test(v)) v = "https://" + v;
@@ -548,25 +541,6 @@
         setTimeout(() => { nfFrame.src = nfTargetSrc(); }, 50);
       };
 
-      // Zen-Modus: alles ausblenden, nur der Ticker bleibt (Vollbild)
-      document.getElementById("hideBtn").onclick = () => {
-        menuOpen = false;
-        document.body.classList.add("zen");
-        renderAll();
-      };
-      document.getElementById("showBtn").onclick = () => {
-        document.body.classList.remove("zen");
-        renderAll();
-      };
-      // Zen-Modus: die schwebenden Knöpfe leiten an die aktive Ansicht weiter
-      document.getElementById("zenPin").onclick = () => {
-        const b = document.querySelector(".entry.active .pinbtn");
-        if (b) b.click();
-      };
-      document.getElementById("zenRefresh").onclick = () => {
-        const b = document.querySelector(".entry.active .refresh");
-        if (b) b.click();
-      };
       const catRow = document.getElementById("catRow");
       const grpRow = document.getElementById("grpRow");
       const entryRow = document.getElementById("entryRow");
@@ -731,6 +705,12 @@
         renderTabRow();
         showEntry();
         renderPlaceholder();
+        // 📌-Knopf zeigt an, ob die aktive Ansicht einen Pin hat
+        const hasPin = state.noFilter
+          ? !!pinOf("nofilter")
+          : (state.entry !== null ? !!pinOf(state.entry) : false);
+        floatPin.classList.toggle("active", hasPin);
+        updateFloatbar();
         saveState();
       }
       renderAll();
