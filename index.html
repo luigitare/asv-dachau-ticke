@@ -11,8 +11,33 @@
       .topbar { position: relative; z-index: 100; }
       .topbar header { position: relative; display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; white-space: nowrap; }
       .tabbarRow { margin-bottom: .5rem; }
+
+      /* Zen-Modus: alles ausblenden, nur Ticker im Vollbild */
+      .hidebtn {
+        border: 1px solid #d1d5db; background: #fff; border-radius: 999px;
+        padding: .35rem .7rem; font-size: .9rem; cursor: pointer;
+      }
+      body.zen .topbar, body.zen #tabRow, body.zen .note, body.zen .tickerhead { display: none; }
+      body.zen .teamview { margin-top: 0; }
+      body.zen .ticker-frame { height: calc(100vh - 24px); }
+      .zenbar {
+        position: fixed; right: 14px; bottom: 14px; z-index: 300;
+        display: none; flex-direction: column; gap: 8px;
+      }
+      body.zen .zenbar { display: flex; }
+      .fab {
+        width: 46px; height: 46px; border-radius: 999px; border: none;
+        background: #1e3a8a; color: #fff; font-size: 1.05rem; cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0,0,0,.3);
+        display: flex; align-items: center; justify-content: center;
+      }
       .logo { height: 40px; width: auto; flex-shrink: 0; display: block; }
       .mpSep { border-top: 1px solid #e5e7eb; margin: .7rem 0 .2rem; }
+      .menufoot { display: flex; justify-content: flex-end; margin-top: .6rem; }
+      .nofilterbtn {
+        border: 1px solid #d1d5db; background: #fff; border-radius: 999px;
+        padding: .4rem .9rem; font-size: .8rem; cursor: pointer;
+      }
       .closebtn {
         width: 100%; margin-top: .6rem; border: 1px solid #d1d5db; background: #f9fafb;
         border-radius: 10px; padding: .45rem; font-size: .82rem; cursor: pointer;
@@ -122,6 +147,7 @@
         <!-- Original-Vereinslogo, liegt im Repository neben der index.html -->
         <img class="logo" src="logo_c.svg" alt="ASV Dachau Volleys" />
         <button class="menubtn" id="menuBtn">☰ <span id="menuBtnLabel">Menü</span></button>
+        <button class="hidebtn" id="hideBtn" title="Ausblenden – nur Ticker im Vollbild">⛶</button>
       </header>
 
       <!-- Menü als Overlay: blendet ÜBER den Inhalt -->
@@ -134,6 +160,9 @@
           <div class="filterrow" id="grpRow"></div>
           <!-- Stufe 3: konkretes Team / Wettbewerb -->
           <div class="filterrow" id="entryRow"></div>
+          <div class="menufoot">
+            <button class="nofilterbtn" id="noFilterBtn" title="Nur Ticker mit allen BVV-Spielen">🌐 Ohne ASV-Filter</button>
+          </div>
           <button class="closebtn" id="menuCloseBtn">✕ Menü schließen</button>
         </div>
       </div>
@@ -143,6 +172,39 @@
     <div class="filterrow tabbarRow" id="tabRow"></div>
 
     <div class="teamview" id="teamview"></div>
+
+    <!-- Ohne ASV-Filter: nur der BVV-Ticker mit allen Spielen -->
+    <div class="entry" id="nofilterview">
+      <div class="card wide">
+        <div class="tickerhead">
+          <span style="font-size:.82rem; color:#6b7280;">BVV Live-Ticker · Alle Spiele</span>
+          <span style="display:flex; gap:.4rem;">
+            <button class="pinbtn" id="nfPinBtn" title="Spiel-Detail-Link anpinnen">📌 Pin</button>
+            <button class="refresh" id="nfRefresh" title="Ticker neu laden">🔄 neu laden</button>
+          </span>
+        </div>
+        <div class="pinwrap" id="nfPinWrap"><div>
+          <div class="pinrow">
+            <input type="url" id="nfPinInput" placeholder="Hier Spiel-Link einfügen (bvv.sams-ticker.de/detail/…)" />
+            <button class="pinsave" id="nfPinSave">anpinnen</button>
+            <button class="pinclear" id="nfPinClear">✕</button>
+            <span class="hint" id="nfPinHint"></span>
+          </div>
+        </div></div>
+        <iframe class="ticker-frame" id="nfFrame" title="BVV Live-Ticker – Alle Spiele" allow="fullscreen"></iframe>
+        <p class="fallback">
+          Der Ticker lässt sich hier nicht direkt einbetten –
+          <a href="https://bvv.sams-ticker.de/" target="_blank" rel="noopener">hier in einem neuen Tab öffnen ↗</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- Zen-Modus: schwebende Knöpfe unten rechts (Pin, Neu laden, Zurück) -->
+    <div class="zenbar" id="zenbar">
+      <button class="fab" id="zenPin" title="Spiel anpinnen">📌</button>
+      <button class="fab" id="zenRefresh" title="Ticker neu laden">🔄</button>
+      <button class="fab" id="showBtn" title="Steuerung einblenden">☰</button>
+    </div>
 
     <p class="note">
       Datenquelle: BVV-Ergebnisschnittstelle (api.volleyball-bayern.de) ·
@@ -265,7 +327,7 @@
         if (url) pins[String(idx)] = url; else delete pins[String(idx)];
         try { localStorage.setItem(PIN_KEY, JSON.stringify(pins)); } catch (e) { }
       }
-      function targetSrc(t) { return pinOf(t.idx) || (TICKER_BASE + tickerIdOf(t)); }
+      function targetSrc(t) { return pinOf(t.idx) || t.externalUrl || (TICKER_BASE + tickerIdOf(t)); }
       // Spieldetail-Link (klickbare Spielplan-Zeilen). Verifiziert für
       // Jugend-Ligen; für Erwachsenen/Mixed ist der Pfad noch unklar
       // -> dort vorerst kein Klick (detailBase leer).
@@ -276,12 +338,12 @@
       // Beim Start: nichts ausgewählt. Falls gespeichert, wird die
       // letzte Auswahl aus dem localStorage wiederhergestellt
       // (überlebt Tab schließen & Browser-Neustart, ohne Cookie-Alarm).
-      let state = { cat: null, grp: null, entry: null, lastGrpByCat: {}, lastEntryByGrp: {} };
+      let state = { cat: null, grp: null, entry: null, noFilter: false, lastGrpByCat: {}, lastEntryByGrp: {} };
       const STORE_KEY = "asv-dachau-auswahl-v1";
       try {
         const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
         if (saved && typeof saved === "object") state = Object.assign(
-          { cat: null, grp: null, entry: null, lastGrpByCat: {}, lastEntryByGrp: {} }, saved
+          { cat: null, grp: null, entry: null, noFilter: false, lastGrpByCat: {}, lastEntryByGrp: {} }, saved
         );
       } catch (e) { /* ignorieren */ }
 
@@ -332,6 +394,7 @@
               </p>
             </div>
           </div>
+          ${t.wettbewerb ? `
           <div class="tabpane" id="e-${i}-spiele">
             <div class="card">
               <div class="vapi"
@@ -351,7 +414,7 @@
                    data-vapi-teams="[${t.teamId}]">
               </div>
             </div>
-          </div>`;
+          </div>` : ""}`;
         teamview.appendChild(el);
         t.el = el;
 
@@ -433,6 +496,77 @@
       let menuOpen = state.entry === null;
       menuBtn.onclick = () => { menuOpen = !menuOpen; renderAll(); };
       document.getElementById("menuCloseBtn").onclick = () => { menuOpen = false; renderAll(); };
+
+      // Ohne ASV-Filter: nur der BVV-Ticker mit allen Spielen
+      const noFilterView = document.getElementById("nofilterview");
+      const nfFrame = document.getElementById("nfFrame");
+      document.getElementById("noFilterBtn").onclick = () => {
+        state.noFilter = true;
+        state.cat = null; state.grp = null; state.entry = null;
+        menuOpen = false;
+        renderAll();
+      };
+      document.getElementById("nfRefresh").onclick = () => {
+        nfFrame.src = "about:blank";
+        setTimeout(() => { nfFrame.src = nfTargetSrc(); }, 50);
+      };
+
+      // Pin für die "Ohne ASV-Filter"-Ansicht (eigener Speicherplatz)
+      const nfPinWrap = document.getElementById("nfPinWrap");
+      const nfPinBtn = document.getElementById("nfPinBtn");
+      const nfPinInput = document.getElementById("nfPinInput");
+      const nfPinHint = document.getElementById("nfPinHint");
+      const NF_URL = "https://bvv.sams-ticker.de/";
+      function nfTargetSrc() { return pinOf("nofilter") || NF_URL; }
+      function nfSetPinHint() {
+        const p = pinOf("nofilter");
+        nfPinBtn.classList.toggle("active", !!p);
+        nfPinWrap.classList.toggle("open", !!p);
+        nfPinHint.innerHTML = p
+          ? "📌 Dieses Spiel ist angepinnt: <b>" + p.replace("https://bvv.sams-ticker.de/", "") + "</b> – der Ticker zeigt es direkt an. Mit ✕ entfernen."
+            : "📋 <b>So fixierst du ein bestimmtes Spiel:</b><br>1. Im Ticker auf das Spiel tippen (bzw. Spielstand lange drücken → „Link kopieren“ / „URL kopieren“).<br>2. Den kopierten Link hier einfügen und „anpinnen“.<br>Der Ticker zeigt dann genau dieses Spiel – auch fremde Vereine. 📌";
+      }
+      nfSetPinHint();
+      nfPinBtn.onclick = () => nfPinWrap.classList.toggle("open");
+      document.getElementById("nfPinSave").onclick = () => {
+        let v = nfPinInput.value.trim();
+        if (/^bvv\.sams-ticker\.de\/detail\/.+/.test(v)) v = "https://" + v;
+        if (!/^https:\/\/bvv\.sams-ticker\.de\/detail\/.+/.test(v)) {
+          nfPinHint.textContent = "⚠️ Das sieht nicht nach einem Spiel-Link aus. Er sollte mit bvv.sams-ticker.de/detail/… beginnen (z. B. durch „URL kopieren“ im Ticker).";
+          return;
+        }
+        setPin("nofilter", v);
+        nfSetPinHint();
+        nfFrame.src = "about:blank";
+        setTimeout(() => { nfFrame.src = v; }, 50);
+      };
+      document.getElementById("nfPinClear").onclick = () => {
+        setPin("nofilter", "");
+        nfPinInput.value = "";
+        nfSetPinHint();
+        nfFrame.src = "about:blank";
+        setTimeout(() => { nfFrame.src = nfTargetSrc(); }, 50);
+      };
+
+      // Zen-Modus: alles ausblenden, nur der Ticker bleibt (Vollbild)
+      document.getElementById("hideBtn").onclick = () => {
+        menuOpen = false;
+        document.body.classList.add("zen");
+        renderAll();
+      };
+      document.getElementById("showBtn").onclick = () => {
+        document.body.classList.remove("zen");
+        renderAll();
+      };
+      // Zen-Modus: die schwebenden Knöpfe leiten an die aktive Ansicht weiter
+      document.getElementById("zenPin").onclick = () => {
+        const b = document.querySelector(".entry.active .pinbtn");
+        if (b) b.click();
+      };
+      document.getElementById("zenRefresh").onclick = () => {
+        const b = document.querySelector(".entry.active .refresh");
+        if (b) b.click();
+      };
       const catRow = document.getElementById("catRow");
       const grpRow = document.getElementById("grpRow");
       const entryRow = document.getElementById("entryRow");
@@ -460,6 +594,7 @@
         catRow.innerHTML = '<div class="rowlabel">1 · Bereich</div>';
         CATS.forEach((c) => {
           catRow.appendChild(chip(c.label, state.cat === c.id, () => {
+            state.noFilter = false; // ASV-Auswahl aktiv -> Normalmodus
             state.cat = c.id;
             const g = state.lastGrpByCat[c.id];
             state.grp = (g && grpsOfCat(c.id).includes(g)) ? g : null;
@@ -504,6 +639,12 @@
 
       function showEntry() {
         document.querySelectorAll(".entry").forEach((p) => p.classList.remove("active"));
+        if (state.noFilter) {
+          noFilterView.classList.add("active");
+          const nfSrc = nfTargetSrc();
+          if (!nfFrame.src || nfFrame.src === "about:blank") nfFrame.src = nfSrc;
+          return;
+        }
         if (state.entry === null) return;
         const t = CONFIG[state.entry];
         t.el.classList.add("active");
@@ -511,6 +652,7 @@
         t.el.querySelectorAll(".tabpane").forEach((p) => p.classList.remove("active"));
         const pane = t.el.querySelector("#e-" + t.idx + "-" + (state.tab || "ticker"));
         if (pane) pane.classList.add("active");
+        else t.el.querySelector("#e-" + t.idx + "-ticker").classList.add("active");
         // Ticker-iframe lazy laden (nur beim ersten Anzeigen) und beim
         // Teamwechsel frische Daten holen; Ziel = angepinntes Spiel
         // oder Liga-Ansicht
@@ -531,7 +673,11 @@
       function renderTabRow() {
         tabRow.innerHTML = "";
         if (!state.tab) state.tab = "ticker";
-        TABS.forEach((tb) => {
+        // Bei externen Einträgen (z. B. BVV-Tagesübersicht) gibt es
+        // keinen Spielplan/Tabelle -> nur den Ticker-Reiter zeigen
+        const cur = state.entry !== null ? CONFIG[state.entry] : null;
+        const tabs = (cur && cur.externalUrl) ? TABS.filter((x) => x.id === "ticker") : TABS;
+        tabs.forEach((tb) => {
           tabRow.appendChild(chip(tb.label, state.tab === tb.id, () => {
             state.tab = tb.id;
             showEntry();
@@ -552,7 +698,7 @@
           ph.innerHTML = '👋 Tippe oben auf <b>☰ Menü</b> und wähle deine Mannschaft – Live-Ticker, Spielplan und Tabelle erscheinen sofort.';
           teamview.appendChild(ph);
         }
-        ph.style.display = state.entry === null ? "block" : "none";
+        ph.style.display = (state.entry === null && !state.noFilter) ? "block" : "none";
       }
 
       function renderAll() {
@@ -564,7 +710,9 @@
         }
         // Menü-Knopf: zeigt die aktuelle Auswahl, damit man sie ohne
         // Öffnen immer sieht
-        if (state.entry !== null) {
+        if (state.noFilter) {
+          menuBtnLabel.textContent = "🌐 Alle Spiele";
+        } else if (state.entry !== null) {
           const e = CONFIG[state.entry];
           const cat = CATS.find((c) => c.id === state.cat);
           menuBtnLabel.textContent = (cat ? cat.label + " · " : "") + (state.grp || "") + " · " + (e.chip || shortLabel(e.team));
@@ -576,7 +724,7 @@
         }
         menuBtn.classList.toggle("open", menuOpen);
         menuPanel.classList.toggle("open", menuOpen);
-        tabRow.style.display = state.entry !== null ? "flex" : "none";
+        tabRow.style.display = (state.entry !== null && !state.noFilter) ? "flex" : "none";
         renderCatRow();
         renderGrpRow();
         renderEntryRow();
