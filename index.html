@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ASV Dachau Volleyball – Spielplan &amp; Live-Ticker</title>
+    <!-- PWA: installierbare App ("Zum Home-Bildschirm" / "App installieren") -->
+    <meta name="theme-color" content="#1e3a8a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ASV Dachau" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="logo_c.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="logo_c.svg" />
     <style>
       :root { font-family: Inter, system-ui, -apple-system, sans-serif; color: #111827; background: #f4f6f8; }
       * { box-sizing: border-box; }
@@ -744,5 +752,11 @@
 
     <!-- BVV-Schnittstelle: füllt alle .vapi-Container automatisch -->
     <script src="https://api.volleyball-bayern.de/jsi/volley.js.php?key=ff8671c3-ef58-433d-93c5-0f1e580c4347"></script>
+    <!-- PWA: Service Worker registrieren (Offline-Start, Installierbarkeit) -->
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("sw.js").catch(function () { /* offline-first optional */ });
+      }
+    </script>
   </body>
 </html>
