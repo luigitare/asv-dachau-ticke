@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#1e3a8a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="ASV Ticker" />
+    <meta name="apple-mobile-web-app-title" content="ASV Dachau" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="logo_c.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="logo_c.svg" />
@@ -31,6 +31,23 @@
       .nofilterbtn {
         border: 1px solid #d1d5db; background: #fff; border-radius: 999px;
         padding: .4rem .9rem; font-size: .8rem; cursor: pointer;
+      }
+      /* Pin-Hinweisleiste: nur sichtbar, wenn ein Pin gesetzt ist */
+      .pinbar {
+        display: none; align-items: center; justify-content: space-between; gap: .5rem;
+        background: #dbeafe; border: 1px solid #93c5fd; border-radius: 10px;
+        padding: .45rem .7rem; margin-bottom: .5rem;
+        font-size: .8rem; color: #1e3a8a;
+      }
+      .pinbar.show { display: flex; }
+      .pinbar button {
+        border: 1px solid #93c5fd; background: #fff; border-radius: 8px;
+        padding: .25rem .55rem; font-size: .75rem; cursor: pointer; white-space: nowrap;
+        color: #1e3a8a; font-weight: 600;
+      }
+      .footer {
+        text-align: center; font-size: .75rem; color: #9ca3af;
+        margin: 1rem 0 4.5rem;
       }
       .closebtn {
         width: 100%; margin-top: .6rem; border: 1px solid #d1d5db; background: #f9fafb;
@@ -177,6 +194,7 @@
     <!-- Ohne ASV-Filter: nur der BVV-Ticker mit allen Spielen -->
     <div class="entry" id="nofilterview">
       <div class="card wide">
+        <div class="pinbar" id="nfPinbar"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button class="pinbarclear" id="nfPinbarClear">✕ entfernen</button></div>
         <div class="pinwrap" id="nfPinWrap"><div>
           <div class="pinrow">
             <input type="url" id="nfPinInput" placeholder="Hier Spiel-Link einfügen (bvv.sams-ticker.de/detail/…)" />
@@ -202,6 +220,9 @@
     <p class="note">
       Datenquelle: BVV-Ergebnisschnittstelle (api.volleyball-bayern.de) ·
       Live-Ticker: bvv.sams-ticker.de · Spieldetails: volleyball.bayern
+    </p>
+    <p class="footer">
+      Erstellt von S. N. für die ASV Dachau Volleys · Rückmeldung per WhatsApp erbeten 📱
     </p>
 
     <script>
@@ -365,6 +386,7 @@
         el.innerHTML = `
           <div class="tabpane" id="e-${i}-ticker">
             <div class="card wide">
+              <div class="pinbar"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button class="pinbarclear">✕ entfernen</button></div>
               <div class="pinwrap"><div>
                 <div class="pinrow">
                   <input type="url" placeholder="Hier Spiel-Link einfügen (bvv.sams-ticker.de/detail/…)" />
@@ -427,6 +449,8 @@
         el._pinToggle = () => pinWrap.classList.toggle("open");
         const setPinHint = () => {
           const p = pinOf(t.idx);
+          // Pin-Hinweisleiste über dem Ticker einblenden, wenn ein Pin aktiv ist
+          el.querySelector(".pinbar").classList.toggle("show", !!p);
           // Solange ein Pin gesetzt ist, bleibt der Bereich offen sichtbar
           pinWrap.classList.toggle("open", !!p);
           pinHint.innerHTML = p
@@ -449,6 +473,14 @@
           setTimeout(() => { f.src = v; }, 50);
         };
         el.querySelector(".pinclear").onclick = () => {
+          setPin(t.idx, "");
+          pinInput.value = "";
+          setPinHint();
+          const f = el.querySelector(".ticker-frame");
+          f.src = "about:blank";
+          setTimeout(() => { f.src = targetSrc(t); }, 50);
+        };
+        el.querySelector(".pinbarclear").onclick = () => {
           setPin(t.idx, "");
           pinInput.value = "";
           setPinHint();
@@ -522,6 +554,8 @@
       function nfTargetSrc() { return pinOf("nofilter") || NF_URL; }
       function nfSetPinHint() {
         const p = pinOf("nofilter");
+        // Pin-Hinweisleiste über dem Ticker einblenden, wenn ein Pin aktiv ist
+        document.getElementById("nfPinbar").classList.toggle("show", !!p);
         // Solange ein Pin gesetzt ist, bleibt der Bereich offen sichtbar
         nfPinWrap.classList.toggle("open", !!p);
         nfPinHint.innerHTML = p
@@ -542,6 +576,13 @@
         setTimeout(() => { nfFrame.src = v; }, 50);
       };
       document.getElementById("nfPinClear").onclick = () => {
+        setPin("nofilter", "");
+        nfPinInput.value = "";
+        nfSetPinHint();
+        nfFrame.src = "about:blank";
+        setTimeout(() => { nfFrame.src = nfTargetSrc(); }, 50);
+      };
+      document.getElementById("nfPinbarClear").onclick = () => {
         setPin("nofilter", "");
         nfPinInput.value = "";
         nfSetPinHint();
