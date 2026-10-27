@@ -222,7 +222,8 @@
       Live-Ticker: bvv.sams-ticker.de · Spieldetails: volleyball.bayern
     </p>
     <p class="footer">
-      Erstellt von S. N. für die ASV Dachau Volleys · Rückmeldung per WhatsApp erbeten 📱
+      Erstellt von S. N. für die ASV Dachau Volleys · Rückmeldung per WhatsApp erbeten 📱<br />
+      <span id="stand">Stand: 27.10.2026</span>
     </p>
 
     <script>
@@ -798,6 +799,21 @@
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.register("sw.js").catch(function () { /* offline-first optional */ });
       }
+    </script>
+    <!-- Versionsanzeige: Datum des letzten Commits von GitHub abfragen -->
+    <script>
+      (function () {
+        fetch("https://api.github.com/repos/luigitare/asv-dachau-ticker/commits?path=index.html&per_page=1")
+          .then(function (r) { return r.json(); })
+          .then(function (commits) {
+            if (!commits || !commits[0]) return;
+            var d = new Date(commits[0].commit.committer.date);
+            var tag = d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+            var zeit = d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+            document.getElementById("stand").textContent = "Stand: " + tag + ", " + zeit + " Uhr";
+          })
+          .catch(function () { /* offline: Fallback-Datum bleibt stehen */ });
+      })();
     </script>
   </body>
 </html>
