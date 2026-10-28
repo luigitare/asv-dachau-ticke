@@ -765,20 +765,76 @@
       }
       renderAll();
 
+      // ---------------- Live-Ticker-Index (klickbare Spielplan-Zeilen) ----------------
+      // Der BVV-Ticker liefert alle Spiele als JSON (matchSeries-UUID dort =
+      // BVV-Wettbewerb-Id aus dem Portal). Wir laden den Index einmal im
+      // Hintergrund (~2,5 MB komprimiert) und machen dann jede Spielplan-
+      // Zeile klickbar: -> Live-Ticker genau dieses Spiels.
+      const TICKERS_URL = "https://backend.sams-ticker.de/live/indoor/tickers/bvv";
+      let tickerIndex = null; // null = noch nicht geladen, [] = fehlgeschlagen/leer
+      const normTeam = (s) => (s || "").toLowerCase().replace(/[^a-z0-9äöü]/g, "");
+      function loadTickerIndex() {
+        if (tickerIndex !== null) return;
+        tickerIndex = []; // sofort als "in Arbeit" markieren (kein Doppel-Laden)
+        fetch(TICKERS_URL, { headers: { Accept: "application/json" } })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            const idx = [];
+            if (data && data.matchDays) {
+              data.matchDays.forEach((md) => (md.matches || []).forEach((m) => {
+                idx.push({ series: m.matchSeries, t1: normTeam(m.teamDescription1), t2: normTeam(m.teamDescription2), date: m.date, id: m.id });
+              }));
+            }
+            tickerIndex = idx;
+          })
+          .catch(() => { tickerIndex = []; });
+      }
+      function tickerLinkFor(series, nameA, nameB, ddmm) {
+        if (!tickerIndex || !tickerIndex.length) return null;
+        const a = normTeam(nameA), b = normTeam(nameB);
+        const dd = ddmm.split(".")[0], mm = ddmm.split(".")[1];
+        const fmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit" });
+        const hits = tickerIndex.filter((m) =>
+          m.series === series &&
+          ((m.t1 === a && m.t2 === b) || (m.t1 === b && m.t2 === a)) &&
+          fmt.format(new Date(m.date)) === dd + "." + mm);
+        return hits[0] ? "https://bvv.sams-ticker.de/detail/" + hits[0].id : null;
+      }
+      setTimeout(loadTickerIndex, 2500); // nach App-Start im Hintergrund nachladen
+
       // ---------------- Spielplan-Zeilen klickbar machen ----------------
       function linkifySchedules() {
         document.querySelectorAll(".vapi tr.spiel").forEach((row) => {
-          if (row.dataset.linkified) return;
           const entryEl = row.closest(".entry");
           const id = entryEl ? entryEl.id.replace("entry-", "") : null;
           const t = CONFIG[Number(id)];
-          const base = t ? detailBaseOf(t) : null;
           const sid = row.getAttribute("data-vapi-spielid");
-          if (!base || !sid) return;
-          row.dataset.linkified = "1";
-          row.classList.add("clickable");
-          row.title = "Spieldetails & Live-Ticker öffnen";
-          row.addEventListener("click", () => window.open(base + sid, "_blank", "noopener"));
+          if (!t || !sid) return;
+          const datumEl = row.querySelector(".datum");
+          const teamA = row.querySelector(".teama");
+          const teamB = row.querySelector(".teamb");
+          if (!datumEl || !teamA || !teamB) return;
+          // 1. Live-Ticker-Link suchen (sobald der Index geladen ist)
+          if (!row.dataset.tickerurl && tickerIndex && tickerIndex.length) {
+            const link = tickerLinkFor(t.wettbewerb, teamA.textContent, teamB.textContent, datumEl.textContent);
+            if (link) row.dataset.tickerurl = link;
+          }
+          // 2. Klick-Verhalten: Ticker-Link hat Vorrang, sonst BVV-Spieldetail (Jugend)
+          if (row.dataset.tickerurl) {
+            if (row.dataset.linkified === "ticker") return;
+            row.dataset.linkified = "ticker";
+            row.classList.add("clickable");
+            row.title = "📡 Live-Ticker dieses Spiels öffnen";
+            row.addEventListener("click", () => window.open(row.dataset.tickerurl, "_blank", "noopener"));
+          } else if (!row.dataset.linkified) {
+            const base = detailBaseOf(t);
+            if (base) {
+              row.dataset.linkified = "bvv";
+              row.classList.add("clickable");
+              row.title = "Spieldetails & Live-Ticker öffnen";
+              row.addEventListener("click", () => window.open(base + sid, "_blank", "noopener"));
+            }
+          }
         });
       }
       setInterval(linkifySchedules, 1500);
