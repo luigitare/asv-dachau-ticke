@@ -14,22 +14,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Backend laden und Tiefe 2 analysieren
+      - name: Backend laden (mit Wiederholungen) und analysieren
         run: |
-          set -e
-          curl -sS --compressed -m 150 -w "HTTP %{http_code}, %{size_download} bytes\n" \
-            -H "Origin: https://bvv.sams-ticker.de" \
-            -H "Accept: application/json" \
-            -H "User-Agent: Mozilla/5.0" \
-            -o /tmp/tickers.json \
-            https://backend.sams-ticker.de/live/indoor/tickers/bvv
-          ls -l /tmp/tickers.json
+          ok=0
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -sS --compressed -m 150 --retry 2 \
+              -H "Origin: https://bvv.sams-ticker.de" \
+              -H "Accept: application/json" \
+              -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+              -o /tmp/tickers.json \
+              -w "%{http_code}" \
+              https://backend.sams-ticker.de/live/indoor/tickers/bvv) || code="curl-fail"
+            size=$(stat -c %s /tmp/tickers.json 2>/dev/null || echo 0)
+            echo "Versuch $i: HTTP $code, $size Bytes"
+            if [ "$code" = "200" ] && [ "$size" -gt 1000000 ]; then ok=1; break; fi
+            head -c 200 /tmp/tickers.json > /tmp/head.txt || true
+            echo "Antwort-Anfang:"; cat /tmp/head.txt; echo
+            sleep 30
+          done
+          if [ "$ok" != "1" ]; then
+            echo "Backend nicht erreichbar"
+            echo '{ "stage": "download-fehler" }' > backend-probe.json
+          else
           python3 - <<'PYEOF'
           import json, datetime, traceback
           out = {"stage": "start"}
           try:
               data = json.load(open('/tmp/tickers.json'))
-              out["stage"] = "geladen"
 
               def keyset(objs):
                   s = set()
@@ -72,7 +83,8 @@ jobs:
                   out["matchStats_len"] = len(st)
                   out["matchStats_samples"] = dict(list(st.items())[:2])
 
-              out["settings_keys"] = sorted(data.get("settings", {}).keys()) if isinstance(data.get("settings"), dict) else type(data.get("settings")).__name__
+              se = data.get("settings")
+              out["settings_keys"] = sorted(se.keys()) if isinstance(se, dict) else type(se).__name__
 
               all_matches = []
               for md in data.get("matchDays", []):
@@ -95,6 +107,7 @@ jobs:
           if "error" in out:
               raise SystemExit(1)
           PYEOF
+          fi
 
       - name: Ergebnis committen
         if: always()
