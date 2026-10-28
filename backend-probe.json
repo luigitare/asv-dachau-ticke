@@ -1,0 +1,58 @@
+{
+ "matchCount": 1379,
+ "topLevel": [
+  "matchDays",
+  "matchSeries",
+  "matchStates",
+  "matchStats",
+  "settings"
+ ],
+ "matchDayKeys": [
+  "date",
+  "matches"
+ ],
+ "matchFields": {
+  "id": [
+   "str"
+  ],
+  "teamDescription1": [
+   "str"
+  ],
+  "teamDescription2": [
+   "str"
+  ],
+  "team1": [
+   "str"
+  ],
+  "team2": [
+   "str"
+  ],
+  "date": [
+   "int"
+  ],
+  "matchSeries": [
+   "str"
+  ],
+  "indefinitelyRescheduled": [
+   "bool"
+  ],
+  "delayPossible": [
+   "bool"
+  ],
+  "mode": [
+   "str"
+  ]
+ },
+ "sampleMatch": {
+  "id": "8be6ff51-0576-4750-b712-3e24485e3a42",
+  "teamDescription1": "Satellites Schwabmünchen",
+  "teamDescription2": "TSV Haunstetten",
+  "team1": "8a94be93-280e-4b99-bb2f-872c003f58ad",
+  "team2": "2bfaf6e7-3f66-4890-b1fe-03f79b7804df",
+  "date": 1792620000000,
+  "matchSeries": "7e225647-927b-422b-9f66-859f9a05922d",
+  "indefinitelyRescheduled": false,
+  "delayPossible": false,
+  "mode": "DETAILED"
+ }
+}
