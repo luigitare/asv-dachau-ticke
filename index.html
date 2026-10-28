@@ -770,7 +770,7 @@
       // BVV-Wettbewerb-Id aus dem Portal). Wir laden den Index einmal im
       // Hintergrund (~2,5 MB komprimiert) und machen dann jede Spielplan-
       // Zeile klickbar: -> Live-Ticker genau dieses Spiels.
-      const TICKERS_URL = "https://backend.sams-ticker.de/live/indoor/tickers/bvv";
+      const TICKERS_URL = "ticker-index.json"; // schlanker Index im Repo, per GitHub Action aktuell gehalten
       let tickerIndex = null; // null = noch nicht geladen, [] = fehlgeschlagen/leer
       const normTeam = (s) => (s || "").toLowerCase().replace(/[^a-z0-9äöü]/g, "");
       function loadTickerIndex() {
