@@ -14,11 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Backend laden (mit Wiederholungen) und analysieren
+      - name: Backend laden und den Live-Match-State extrahieren
         run: |
           ok=0
-          for i in 1 2 3 4 5 6; do
-            code=$(curl -sS --compressed -m 150 --retry 2 \
+          for i in 1 2 3 4 5; do
+            code=$(curl -sS --compressed -m 150 \
               -H "Origin: https://bvv.sams-ticker.de" \
               -H "Accept: application/json" \
               -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
@@ -28,82 +28,77 @@ jobs:
             size=$(stat -c %s /tmp/tickers.json 2>/dev/null || echo 0)
             echo "Versuch $i: HTTP $code, $size Bytes"
             if [ "$code" = "200" ] && [ "$size" -gt 1000000 ]; then ok=1; break; fi
-            head -c 200 /tmp/tickers.json > /tmp/head.txt || true
-            echo "Antwort-Anfang:"; cat /tmp/head.txt; echo
-            sleep 30
+            sleep 45
           done
           if [ "$ok" != "1" ]; then
-            echo "Backend nicht erreichbar"
             echo '{ "stage": "download-fehler" }' > backend-probe.json
           else
           python3 - <<'PYEOF'
           import json, datetime, traceback
-          out = {"stage": "start"}
+          MATCH_ID = "6ed3479d-d042-4e23-9978-70ea80392504"
+          out = {"stage": "start", "matchId": MATCH_ID}
           try:
               data = json.load(open('/tmp/tickers.json'))
-
-              def keyset(objs):
-                  s = set()
-                  for o in objs:
-                      if isinstance(o, dict):
-                          s.update(o.keys())
-                  return sorted(s)
-
               ms = data.get("matchStates")
-              if isinstance(ms, list):
-                  out["matchStates_type"] = "list"
-                  out["matchStates_len"] = len(ms)
-                  out["matchStates_keys"] = keyset(ms)
-                  out["matchStates_samples"] = ms[:3]
-              elif isinstance(ms, dict):
-                  out["matchStates_type"] = "dict"
-                  out["matchStates_len"] = len(ms)
-                  out["matchStates_keys"] = keyset(list(ms.values()))
-                  out["matchStates_samples"] = dict(list(ms.items())[:3])
-
-              sr = data.get("matchSeries")
-              if isinstance(sr, list):
-                  out["matchSeries_type"] = "list"
-                  out["matchSeries_len"] = len(sr)
-                  out["matchSeries_keys"] = keyset(sr)
-                  out["matchSeries_samples"] = sr[:2]
-              elif isinstance(sr, dict):
-                  out["matchSeries_type"] = "dict"
-                  out["matchSeries_len"] = len(sr)
-                  out["matchSeries_samples"] = dict(list(sr.items())[:2])
-
               st = data.get("matchStats")
-              if isinstance(st, list):
-                  out["matchStats_type"] = "list"
-                  out["matchStats_len"] = len(st)
-                  out["matchStats_keys"] = keyset(st)
-                  out["matchStats_samples"] = st[:2]
-              elif isinstance(st, dict):
-                  out["matchStats_type"] = "dict"
-                  out["matchStats_len"] = len(st)
-                  out["matchStats_samples"] = dict(list(st.items())[:2])
+              out["matchStates_type"] = type(ms).__name__
 
-              se = data.get("settings")
-              out["settings_keys"] = sorted(se.keys()) if isinstance(se, dict) else type(se).__name__
-
+              # Alle Spiele sammeln
               all_matches = []
               for md in data.get("matchDays", []):
                   for m in md.get("matches", []):
                       all_matches.append(m)
-              dates = [m["date"] for m in all_matches]
-              asv = [m for m in all_matches if "ASV Dachau" in (m.get("teamDescription1") or "") or "ASV Dachau" in (m.get("teamDescription2") or "")]
-              def fmt(x):
-                  return datetime.datetime.fromtimestamp(x/1000, datetime.timezone(datetime.timedelta(hours=1))).isoformat()
-              out["matchCount"] = len(all_matches)
-              out["dateMin"] = fmt(min(dates)) if dates else None
-              out["dateMax"] = fmt(max(dates)) if dates else None
-              out["asvCount"] = len(asv)
-              out["asvSeries"] = sorted(set(m["matchSeries"] for m in asv))
-              out["asvDateRange"] = [fmt(min(m["date"] for m in asv)), fmt(max(m["date"] for m in asv))] if asv else None
+
+              now = datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000
+
+              # Das Zielspiel
+              target = next((m for m in all_matches if m.get("id") == MATCH_ID), None)
+              out["targetMatch"] = target
+
+              # State des Zielspiels
+              if isinstance(ms, dict):
+                  out["targetState"] = ms.get(MATCH_ID)
+              elif isinstance(ms, list):
+                  out["targetState"] = next((s for s in ms if isinstance(s, dict) and s.get("id") == MATCH_ID or (isinstance(s, dict) and s.get("matchId") == MATCH_ID)), None)
+
+              # Vergleichsproben: ein laufendes, ein zukuenftiges, ein beendetes Spiel
+              def state_of(mid):
+                  if isinstance(ms, dict):
+                      return ms.get(mid)
+                  if isinstance(ms, list):
+                      for s in ms:
+                          if isinstance(s, dict) and s.get("id") == mid:
+                              return s
+                  return None
+
+              running = []
+              past = []
+              future = []
+              for m in all_matches:
+                  s = state_of(m.get("id")) or {}
+                  bucket = "other"
+                  if isinstance(s, dict):
+                      bucket = s.get("state") or s.get("status") or "other"
+                  d = m.get("date", 0)
+                  if d > now + 3600000:
+                      future.append((m, s))
+                  elif d < now - 7200000:
+                      past.append((m, s))
+                  else:
+                      running.append((m, s))
+              out["counts"] = {"zukuenftig": len(future), "vergangen": len(past), "imZeitfenster": len(running)}
+              out["beispiel_zukunft"] = {"match": future[0][0], "state": future[0][1]} if future else None
+              out["beispiel_vergangen"] = {"match": past[0][0], "state": past[0][1]} if past else None
+              out["alleStatesImZeitfenster"] = [
+                  {"date": m.get("date"), "id": m.get("id"), "state": s} for (m, s) in running[:5]
+              ]
+              # matchStats fuer das Zielspiel
+              if isinstance(st, dict):
+                  out["targetStats"] = st.get(MATCH_ID)
               out["stage"] = "fertig"
           except Exception:
               out["error"] = traceback.format_exc()
-          open("backend-probe.json", "w").write(json.dumps(out, ensure_ascii=False, indent=1))
+          open("backend-probe.json", "w").write(json.dumps(out, ensure_ascii=False, indent=1, default=str))
           if "error" in out:
               raise SystemExit(1)
           PYEOF
@@ -118,6 +113,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "Keine Aenderung."
           else
-            git commit -m "Backend Tiefe-2-Analyse [bot]"
+            git commit -m "Live-Match-State Analyse [bot]"
             git push
           fi
