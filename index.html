@@ -643,6 +643,24 @@
         return set;
       }
 
+      // Auto-Auswahl: Gibt es im gewaehlten Bereich nur EINE Mannschaft
+      // (grp) oder nur EINEN Wettbewerb (entry), wird diese direkt
+      // vorausgewaehlt (z. B. Damen: Mannschaft -> Liga in einem Klick).
+      function autoAdvance(cat) {
+        const grps = grpsOfCat(cat);
+        if (state.grp === null && grps.length === 1) {
+          state.grp = grps[0];
+          rememberGrp(cat, grps[0]);
+        }
+        if (state.grp !== null) {
+          const entries = CONFIG.filter((e) => e.cat === cat && e.grp === state.grp);
+          if (state.entry === null && entries.length === 1) {
+            state.entry = entries[0].idx;
+            rememberEntry(cat, state.grp, entries[0].idx);
+          }
+        }
+      }
+
       function renderCatRow() {
         catRow.innerHTML = '<div class="rowlabel">1 · Bereich</div>';
         CATS.forEach((c) => {
@@ -652,6 +670,7 @@
             const g = state.lastGrpByCat[c.id];
             state.grp = (g && grpsOfCat(c.id).includes(g)) ? g : null;
             state.entry = state.grp !== null ? (state.lastEntryByGrp[c.id + "|" + state.grp] ?? null) : null;
+            autoAdvance(c.id);
             renderAll();
           }));
         });
@@ -665,6 +684,7 @@
             state.grp = g;
             rememberGrp(state.cat, g);
             state.entry = state.lastEntryByGrp[state.cat + "|" + g] ?? null;
+            autoAdvance(state.cat);
             renderAll();
           }));
         });
