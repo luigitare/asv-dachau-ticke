@@ -443,6 +443,17 @@
           setTimeout(() => { f.src = src; }, 50);
         };
 
+        // Spiel im eigenen Ticker-iframe laden (Klick auf Spielplan-Zeile):
+        // Pin auf dieses Spiel setzen und den Ticker darauf umschalten
+        el._pinTo = (url) => {
+          setPin(t.idx, url);
+          pinInput.value = url;
+          setPinHint();
+          const f = el.querySelector(".ticker-frame");
+          f.src = "about:blank";
+          setTimeout(() => { f.src = url; }, 50);
+        };
+
         // Pin: Spiel-Detail-URL pro Team speichern/löschen
         const pinWrap = el.querySelector(".pinwrap");
         const pinInput = el.querySelector(".pinrow input");
@@ -837,8 +848,13 @@
             if (row.dataset.linkified === "ticker") return;
             row.dataset.linkified = "ticker";
             row.classList.add("clickable");
-            row.title = "📡 Live-Ticker dieses Spiels öffnen";
-            row.addEventListener("click", () => window.open(row.dataset.tickerurl, "_blank", "noopener"));
+            row.title = "📡 Live-Ticker dieses Spiels im Ticker-Reiter laden";
+            row.addEventListener("click", () => {
+              state.tab = "ticker";
+              saveState();
+              renderAll();
+              if (t.el && t.el._pinTo) t.el._pinTo(row.dataset.tickerurl);
+            });
           } else if (!row.dataset.linkified) {
             const base = detailBaseOf(t);
             if (base) {
