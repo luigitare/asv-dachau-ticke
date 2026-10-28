@@ -2,7 +2,7 @@ name: Ticker-Index aktualisieren
 
 on:
   schedule:
-    - cron: "23 5 * * 4"
+    - cron: \"23 5 * * 4\"
   workflow_dispatch:
 
 permissions:
@@ -16,49 +16,49 @@ jobs:
 
       - name: Ticker-Index und ASV-Wettbewerbe erzeugen
         run: |
-          curl -sS --compressed -m 150 \
-            -H "Origin: https://bvv.sams-ticker.de" \
-            -H "Accept: application/json" \
-            -H "User-Agent: Mozilla/5.0" \
+          curl -sS --compressed -m 150 \\
+            -H \"Origin: https://bvv.sams-ticker.de\" \\
+            -H \"Accept: application/json\" \\
+            -H \"User-Agent: Mozilla/5.0\" \\
             https://backend.sams-ticker.de/live/indoor/tickers/bvv -o /tmp/tickers.json
           python3 - <<'PYEOF'
           import json
           data = json.load(open('/tmp/tickers.json'))
-          slim = {"matchDays": []}
+          slim = {\"matchDays\": []}
           asv_series = {}
-          for md in data.get("matchDays", []):
+          for md in data.get(\"matchDays\", []):
               ms = []
-              for m in md.get("matches", []):
-                  ms.append({"id": m["id"], "teamDescription1": m["teamDescription1"],
-                             "teamDescription2": m["teamDescription2"], "date": m["date"],
-                             "matchSeries": m["matchSeries"]})
-                  if "ASV Dachau" in m["teamDescription1"] or "ASV Dachau" in m["teamDescription2"]:
-                      entry = asv_series.setdefault(m["matchSeries"], {
-                          "wettbewerb": m["matchSeries"], "spiele": 0,
-                          "asvTeams": set(), "gegnerBeispiele": []})
-                      entry["spiele"] += 1
-                      for team, other in ((m["teamDescription1"], m["teamDescription2"]),
-                                          (m["teamDescription2"], m["teamDescription1"])):
-                          if "ASV Dachau" in team:
-                              entry["asvTeams"].add(team)
-                              if other not in entry["gegnerBeispiele"] and len(entry["gegnerBeispiele"]) < 5:
-                                  entry["gegnerBeispiele"].append(other)
+              for m in md.get(\"matches\", []):
+                  ms.append({\"id\": m[\"id\"], \"teamDescription1\": m[\"teamDescription1\"],
+                             \"teamDescription2\": m[\"teamDescription2\"], \"date\": m[\"date\"],
+                             \"matchSeries\": m[\"matchSeries\"]})
+                  if \"ASV Dachau\" in m[\"teamDescription1\"] or \"ASV Dachau\" in m[\"teamDescription2\"]:
+                      entry = asv_series.setdefault(m[\"matchSeries\"], {
+                          \"wettbewerb\": m[\"matchSeries\"], \"spiele\": 0,
+                          \"asvTeams\": set(), \"gegnerBeispiele\": []})
+                      entry[\"spiele\"] += 1
+                      for team, other in ((m[\"teamDescription1\"], m[\"teamDescription2\"]),
+                                          (m[\"teamDescription2\"], m[\"teamDescription1\"])):
+                          if \"ASV Dachau\" in team:
+                              entry[\"asvTeams\"].add(team)
+                              if other not in entry[\"gegnerBeispiele\"] and len(entry[\"gegnerBeispiele\"]) < 5:
+                                  entry[\"gegnerBeispiele\"].append(other)
               if ms:
-                  slim["matchDays"].append({"matches": ms})
-          open("ticker-index.json", "w").write(json.dumps(slim, ensure_ascii=False, separators=(",", ":")))
-          out = {"stand": "automatisch generiert",
-                 "wettbewerbe": [dict(v, asvTeams=sorted(v["asvTeams"])) for v in asv_series.values()]}
-          open("asv-wettbewerbe.json", "w").write(json.dumps(out, ensure_ascii=False, indent=1))
+                  slim[\"matchDays\"].append({\"matches\": ms})
+          open(\"ticker-index.json\", \"w\").write(json.dumps(slim, ensure_ascii=False, separators=(\",\", \":\")))
+          out = {\"stand\": \"automatisch generiert\",
+                 \"wettbewerbe\": [dict(v, asvTeams=sorted(v[\"asvTeams\"])) for v in asv_series.values()]}
+          open(\"asv-wettbewerbe.json\", \"w\").write(json.dumps(out, ensure_ascii=False, indent=1))
           PYEOF
 
       - name: Committen, falls geändert
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ticker-index.json asv-wettbewerbe.json
+          git config user.name \"github-actions[bot]\"
+          git config user.email \"41898282+github-actions[bot]@users.noreply.github.com\"
+          cp /tmp/tickers.json ticker-raw.json
+          git add ticker-index.json asv-wettbewerbe.json ticker-raw.json
           if git diff --cached --quiet; then
-            echo "Keine Änderungen."
+            echo \"Keine Änderungen.\"
           else
-            git commit -m "Ticker-Index + ASV-Wettbewerbe aktualisieren [bot]"
+            git commit -m \"Ticker-Index + ASV-Wettbewerbe aktualisieren [bot]\"
             git push
-          fi
