@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Demo: Alle ASV-Spiele (Gesamtspielplan)</title>
-    <script src="https://api.volleyball-bayern.de/jsi/volley.js.php?key=ff8671c3-ef58-433d-93c5-0f1e580c4347"></script>
     <style>
       body { font-family: Inter, system-ui, -apple-system, sans-serif; background: #f4f6f8; color: #111827; margin: 0; padding: 1rem; }
       h1 { font-size: 1.1rem; }
@@ -54,5 +53,7 @@
     <p style="font-size:.78rem;color:#9ca3af;margin-top:1rem">
       Demo mit 6 Mannschaften (Herren 4/5, Damen 2/3, U18 m, U16 w). Zeitfenster: -12 bis +12 Tage.
     </p>
-  </body>
+      <!-- WICHTIG: BVV-Skript NUR am Ende des Body laden (im Head crasht es: document.body existiert dort noch nicht) -->
+    <script src="https://api.volleyball-bayern.de/jsi/volley.js.php?key=ff8671c3-ef58-433d-93c5-0f1e580c4347"></script>
+</body>
 </html>
