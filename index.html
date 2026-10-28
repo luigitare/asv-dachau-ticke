@@ -158,6 +158,21 @@
       /* Spielplan-Zeilen klickbar (öffnen BVV-Spieldetail mit Live-Ticker) */
       .vapi tr.spiel.clickable { cursor: pointer; }
       .vapi tr.spiel.clickable:hover td { background: #dbeafe; }
+      /* Heute-Zeile: Spiele des gewaehlten Wettbewerbs an diesem Tag */
+      #heuteRow { margin: 0 0 .55rem; }
+      #heuteRow .rowlabel2 { margin: 0 0 .25rem; }
+      .heutecards { display: flex; gap: .4rem; overflow-x: auto; padding-bottom: .15rem; }
+      .heutecard {
+        display: flex; align-items: center; gap: .45rem; flex-shrink: 0;
+        border: 1px solid #d1d5db; background: #fff; border-radius: 10px;
+        padding: .45rem .65rem; font-size: .78rem; cursor: pointer; white-space: nowrap;
+      }
+      .heutecard:hover { border-color: #2563eb; background: #eff6ff; }
+      .heutecard.pinned { border-color: #1e3a8a; background: #dbeafe; }
+      .heutecard .hc-zeit { font-weight: 700; color: #6b7280; font-size: .72rem; }
+      .heutecard .hc-pin { font-size: .8rem; }
+      .heutecard b { font-weight: 600; color: #374151; }
+      .heutecard b.asv { color: #1e3a8a; }
     </style>
   </head>
   <body>
@@ -188,6 +203,9 @@
 
     <!-- Ansicht-Umschalter: immer sichtbar über dem Inhalt -->
     <div class="filterrow tabbarRow" id="tabRow"></div>
+
+    <!-- Heute-Zeile: Spiele des gewaehlten Teams, die heute stattfinden -->
+    <div id="heuteRow" style="display:none"></div>
 
     <div class="teamview" id="teamview"></div>
 
@@ -736,6 +754,55 @@
         ph.style.display = (state.entry === null && !state.noFilter) ? "block" : "none";
       }
 
+      // ---------------- Heute-Zeile unter der Tab-Leiste ----------------
+      // Zeigt die Spiele des ausgewaehlten Wettbewerbs, die HEUTE
+      // stattfinden (aus dem Ticker-Index). Antippen pinnt das Spiel
+      // an: der Live-Ticker-Reiter laedt dann genau dieses Spiel.
+      const heuteRow = document.getElementById("heuteRow");
+      const escHtml = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      function renderHeuteRow() {
+        heuteRow.innerHTML = "";
+        heuteRow.style.display = "none";
+        if (state.entry === null || state.noFilter) return;
+        if (!tickerIndex || !tickerIndex.length) return;
+        const t = CONFIG[state.entry];
+        if (!t || !t.wettbewerb) return;
+        const fmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
+        const zeitFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
+        const heute = fmt.format(new Date());
+        const spiele = tickerIndex
+          .filter((m) => m.series === t.wettbewerb && fmt.format(new Date(m.date)) === heute)
+          .sort((a, b) => a.date - b.date);
+        if (!spiele.length) return;
+        const label = document.createElement("div");
+        label.className = "rowlabel2";
+        label.textContent = "📅 Heute in dieser Liga · " + spiele.length + " Spiel" + (spiele.length > 1 ? "e" : "") + " · antippen = anpinnen 📌";
+        heuteRow.appendChild(label);
+        const wrap = document.createElement("div");
+        wrap.className = "heutecards";
+        spiele.forEach((m) => {
+          const url = "https://bvv.sams-ticker.de/detail/" + m.id;
+          const pinAktiv = pinOf(t.idx) === url;
+          const zeit = zeitFmt.format(new Date(m.date));
+          const card = document.createElement("button");
+          card.className = "heutecard" + (pinAktiv ? " pinned" : "");
+          card.title = "Live-Ticker dieses Spiels laden";
+          card.innerHTML =
+            '<span class="hc-zeit">' + (zeit === "00:00" ? "–" : zeit) + '</span>' +
+            '<span><b' + (m.t1r && m.t1r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t1r) + '</b> – <b' + (m.t2r && m.t2r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t2r) + '</b></span>' +
+            (pinAktiv ? '<span class="hc-pin">📌</span>' : "");
+          card.onclick = () => {
+            state.tab = "ticker";
+            saveState();
+            renderAll();
+            if (t.el && t.el._pinTo) t.el._pinTo(url);
+          };
+          wrap.appendChild(card);
+        });
+        heuteRow.appendChild(wrap);
+        heuteRow.style.display = "block";
+      }
+
       function renderAll() {
         // Gespeicherte Auswahl validieren: existiert der Eintrag noch?
         if (state.entry !== null && !CONFIG[state.entry]) { state.entry = null; state.grp = null; state.cat = null; menuOpen = true; }
@@ -764,6 +831,7 @@
         renderGrpRow();
         renderEntryRow();
         renderTabRow();
+        renderHeuteRow();
         showEntry();
         renderPlaceholder();
         // 📌-Knopf zeigt an, ob die aktive Ansicht einen Pin hat
@@ -794,10 +862,11 @@
             const idx = [];
             if (data && data.matchDays) {
               data.matchDays.forEach((md) => (md.matches || []).forEach((m) => {
-                idx.push({ series: m.matchSeries, t1: normTeam(m.teamDescription1), t2: normTeam(m.teamDescription2), date: m.date, id: m.id });
+                idx.push({ series: m.matchSeries, t1: normTeam(m.teamDescription1), t2: normTeam(m.teamDescription2), t1r: m.teamDescription1, t2r: m.teamDescription2, date: m.date, id: m.id });
               }));
             }
             tickerIndex = idx;
+            renderHeuteRow();
           })
           .catch(() => { tickerIndex = []; });
       }
