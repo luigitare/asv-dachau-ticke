@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Backend laden und Felder analysieren
+      - name: Backend laden und Tiefe 2 analysieren
         run: |
           curl -s --compressed -m 120 \
             -H "Origin: https://bvv.sams-ticker.de" \
@@ -22,27 +22,73 @@ jobs:
             -H "User-Agent: Mozilla/5.0" \
             https://backend.sams-ticker.de/live/indoor/tickers/bvv -o /tmp/tickers.json
           python3 - <<'PYEOF'
-          import json
+          import json, datetime
           data = json.load(open('/tmp/tickers.json'))
-          keys = {}
-          md_keys = set()
-          count = 0
-          sample = None
+
+          def keyset(objs):
+              s = set()
+              for o in objs:
+                  if isinstance(o, dict):
+                      s.update(o.keys())
+              return sorted(s)
+
+          out = {}
+
+          ms = data.get("matchStates")
+          if isinstance(ms, list):
+              out["matchStates_type"] = "list"
+              out["matchStates_len"] = len(ms)
+              out["matchStates_keys"] = keyset(ms)
+              out["matchStates_samples"] = ms[:3]
+          elif isinstance(ms, dict):
+              out["matchStates_type"] = "dict"
+              out["matchStates_len"] = len(ms)
+              vals = list(ms.values())
+              out["matchStates_keys"] = keyset(vals)
+              items = list(ms.items())
+              out["matchStates_samples"] = dict(items[:3])
+
+          sr = data.get("matchSeries")
+          if isinstance(sr, list):
+              out["matchSeries_type"] = "list"
+              out["matchSeries_len"] = len(sr)
+              out["matchSeries_keys"] = keyset(sr)
+              out["matchSeries_samples"] = sr[:2]
+          elif isinstance(sr, dict):
+              out["matchSeries_type"] = "dict"
+              out["matchSeries_len"] = len(sr)
+              items = list(sr.items())
+              out["matchSeries_samples"] = dict(items[:2])
+
+          st = data.get("matchStats")
+          if isinstance(st, list):
+              out["matchStats_type"] = "list"
+              out["matchStats_len"] = len(st)
+              out["matchStats_keys"] = keyset(st)
+              out["matchStats_samples"] = st[:2]
+          elif isinstance(st, dict):
+              out["matchStats_type"] = "dict"
+              out["matchStats_len"] = len(st)
+              items = list(st.items())
+              out["matchStats_samples"] = dict(items[:2])
+
+          out["settings"] = data.get("settings")
+
+          all_matches = []
           for md in data.get("matchDays", []):
-              md_keys.update(md.keys())
               for m in md.get("matches", []):
-                  count += 1
-                  if sample is None:
-                      sample = m
-                  for k, v in m.items():
-                      keys.setdefault(k, set()).add(type(v).__name__)
-          out = {
-              "matchCount": count,
-              "topLevel": sorted(data.keys()),
-              "matchDayKeys": sorted(md_keys),
-              "matchFields": {k: sorted(v) for k, v in keys.items()},
-              "sampleMatch": sample,
-          }
+                  all_matches.append(m)
+          dates = [m["date"] for m in all_matches]
+          asv = [m for m in all_matches if "ASV Dachau" in (m.get("teamDescription1") or "") or "ASV Dachau" in (m.get("teamDescription2") or "")]
+          def fmt(ms):
+              return datetime.datetime.fromtimestamp(ms/1000, datetime.timezone(datetime.timedelta(hours=1))).isoformat()
+          out["matchCount"] = len(all_matches)
+          out["dateMin"] = fmt(min(dates)) if dates else None
+          out["dateMax"] = fmt(max(dates)) if dates else None
+          out["asvCount"] = len(asv)
+          out["asvSeries"] = sorted(set(m["matchSeries"] for m in asv))
+          out["asvDateRange"] = [fmt(min(m["date"] for m in asv)), fmt(max(m["date"] for m in asv))] if asv else None
+
           open("backend-probe.json", "w").write(json.dumps(out, ensure_ascii=False, indent=1))
           PYEOF
 
@@ -54,6 +100,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "Keine Aenderung."
           else
-            git commit -m "Backend-Felder analysieren [bot]"
+            git commit -m "Backend Tiefe-2-Analyse [bot]"
             git push
           fi
