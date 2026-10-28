@@ -1,0 +1,59 @@
+name: Backend-Felder analysieren (Einmal-Probe)
+
+on:
+  push:
+    paths:
+      - ".github/workflows/probe-backend.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Backend laden und Felder analysieren
+        run: |
+          curl -s --compressed -m 120 \
+            -H "Origin: https://bvv.sams-ticker.de" \
+            -H "Accept: application/json" \
+            -H "User-Agent: Mozilla/5.0" \
+            https://backend.sams-ticker.de/live/indoor/tickers/bvv -o /tmp/tickers.json
+          python3 - <<'PYEOF'
+          import json
+          data = json.load(open('/tmp/tickers.json'))
+          keys = {}
+          md_keys = set()
+          count = 0
+          sample = None
+          for md in data.get("matchDays", []):
+              md_keys.update(md.keys())
+              for m in md.get("matches", []):
+                  count += 1
+                  if sample is None:
+                      sample = m
+                  for k, v in m.items():
+                      keys.setdefault(k, set()).add(type(v).__name__)
+          out = {
+              "matchCount": count,
+              "topLevel": sorted(data.keys()),
+              "matchDayKeys": sorted(md_keys),
+              "matchFields": {k: sorted(v) for k, v in keys.items()},
+              "sampleMatch": sample,
+          }
+          open("backend-probe.json", "w").write(json.dumps(out, ensure_ascii=False, indent=1))
+          PYEOF
+
+      - name: Ergebnis committen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend-probe.json
+          if git diff --cached --quiet; then
+            echo "Keine Aenderung."
+          else
+            git commit -m "Backend-Felder analysieren [bot]"
+            git push
+          fi
