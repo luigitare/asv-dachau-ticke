@@ -772,7 +772,8 @@
       // Zeile klickbar: -> Live-Ticker genau dieses Spiels.
       const TICKERS_URL = "ticker-index.json"; // schlanker Index im Repo, per GitHub Action aktuell gehalten
       let tickerIndex = null; // null = noch nicht geladen, [] = fehlgeschlagen/leer
-      const normTeam = (s) => (s || "").toLowerCase().replace(/[^a-z0-9äöü]/g, "");
+      // "(H)" = Heimspielkennzeichen des BVV-Widgets – vor dem Vergleich entfernen!
+      const normTeam = (s) => (s || "").toLowerCase().replace(/\(h\)/g, "").replace(/[^a-z0-9äöü]/g, "");
       function loadTickerIndex() {
         if (tickerIndex !== null) return;
         tickerIndex = []; // sofort als "in Arbeit" markieren (kein Doppel-Laden)
@@ -794,10 +795,22 @@
         const a = normTeam(nameA), b = normTeam(nameB);
         const dd = ddmm.split(".")[0], mm = ddmm.split(".")[1];
         const fmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit" });
-        const hits = tickerIndex.filter((m) =>
+        const ddm = dd + "." + mm;
+        // Intl liefert "24.10." mit Schlusspunkt, die Zeile "24.10" ohne -> Punkt ignorieren
+        const sameDay = (m) => fmt.format(new Date(m.date)).replace(/\.$/, "") === ddm;
+        // exakter Treffer ...
+        let hits = tickerIndex.filter((m) =>
           m.series === series &&
           ((m.t1 === a && m.t2 === b) || (m.t1 === b && m.t2 === a)) &&
-          fmt.format(new Date(m.date)) === dd + "." + mm);
+          sameDay(m));
+        // ... sonst tolerantes Matching (Namensvarianten in Ticker vs. Spielplan)
+        if (!hits.length) {
+          const like = (x, y) => x.length >= 6 && y.length >= 6 && (x.startsWith(y) || y.startsWith(x));
+          hits = tickerIndex.filter((m) =>
+            m.series === series &&
+            ((like(m.t1, a) && like(m.t2, b)) || (like(m.t1, b) && like(m.t2, a))) &&
+            sameDay(m));
+        }
         return hits[0] ? "https://bvv.sams-ticker.de/detail/" + hits[0].id : null;
       }
       setTimeout(loadTickerIndex, 2500); // nach App-Start im Hintergrund nachladen
