@@ -1,0 +1,47 @@
+name: Ticker-Index aktualisieren
+
+on:
+  schedule:
+    - cron: "23 */4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ticker-Index erzeugen
+        run: |
+          curl -s --compressed -m 120 \
+            -H "Origin: https://bvv.sams-ticker.de" \
+            -H "Accept: application/json" \
+            -H "User-Agent: Mozilla/5.0" \
+            https://backend.sams-ticker.de/live/indoor/tickers/bvv -o /tmp/tickers.json
+          python3 - <<'PYEOF'
+          import json
+          data = json.load(open('/tmp/tickers.json'))
+          slim = {"matchDays": []}
+          for md in data.get("matchDays", []):
+              ms = [{"id": m["id"], "teamDescription1": m["teamDescription1"],
+                     "teamDescription2": m["teamDescription2"], "date": m["date"],
+                     "matchSeries": m["matchSeries"]} for m in md.get("matches", [])]
+              if ms:
+                  slim["matchDays"].append({"matches": ms})
+          open("ticker-index.json", "w").write(json.dumps(slim, ensure_ascii=False, separators=(",", ":")))
+          PYEOF
+
+      - name: Committen, falls geändert
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ticker-index.json
+          if git diff --cached --quiet; then
+            echo "Keine Änderungen am Ticker-Index."
+          else
+            git commit -m "Ticker-Index aktualisieren [bot]"
+            git push
+          fi
