@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Demo: Alle ASV-Spiele (Gesamtspielplan)</title>
+    <script src="https://api.volleyball-bayern.de/jsi/volley.js.php?key=ff8671c3-ef58-433d-93c5-0f1e580c4347"></script>
+    <style>
+      body { font-family: Inter, system-ui, -apple-system, sans-serif; background: #f4f6f8; color: #111827; margin: 0; padding: 1rem; }
+      h1 { font-size: 1.1rem; }
+      .note { font-size: .8rem; color: #6b7280; background: #fef9c3; border: 1px solid #fde047; border-radius: 10px; padding: .6rem .8rem; margin-bottom: 1rem; }
+      .demo { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; overflow-x: auto; }
+      .vapi table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+      .vapi th, .vapi td { border: 1px solid #e5e7eb; padding: .35rem .5rem; text-align: left; white-space: nowrap; }
+      .vapi th { background: #f1f5f9; }
+      .vapi tr.marked td { background: #eff6ff; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <h1>Demo: „Alle ASV-Spiele“ (Gesamtspielplan)</h1>
+    <p class="note">
+      Demo-Seite: 6 von ~60 ASV-Mannschaften, Zeitfenster 2 Tage zurück bis 12 Tage voraus.
+      In der echten App würden automatisch alle Teams aus dem CONFIG-Array erscheinen,
+      als 4. Reiter „📅 Alle ASV-Spiele“.
+    </p>
+
+    <script>
+      var ASV_CONFIG = {
+        von: -2,
+        bis: 12,
+        wettbewerbe: [
+          "71d66706-e82e-4bc8-bd7f-2ce0939496a5",
+          "aea4d3ff-56de-403a-b67d-2fba4bf83fb8",
+          "c6bfb1ea-ab19-43cc-b864-ae48865c3c22",
+          "00572b76-b0a6-4730-9b69-965ef2c22335",
+          "10a79288-fe8b-4f68-b35f-577e9dbb1987",
+          "c7a7d183-b089-47c4-a0b8-cf7c625acf4a"
+        ],
+        teams: [
+          { id: "1574a5d2-94a2-4956-b58d-4561013b7a2d", name: "Herren 4" },
+          { id: "7e4a3f5d-980b-4264-a327-77340796c0f4", name: "Herren 5" },
+          { id: "368c5a41-6a3a-4b95-8371-aa78ef160255", name: "Damen 2" },
+          { id: "d9de5760-0b7b-4130-9f14-e47fd55e1516", name: "Damen 3" },
+          { id: "f552c499-db61-4a15-afe2-b0237ce06d13", name: "U18 m I" },
+          { id: "9d1d1f61-f8a9-4119-a96f-5db53f20c8e4", name: "U16 w II" }
+        ]
+      };
+    </script>
+
+    <div class="demo">
+      <div class="vapi" data-typ="gesamtspielplan" data-config="ASV_CONFIG"></div>
+    </div>
+
+    <p style="font-size:.78rem;color:#9ca3af;margin-top:1rem">
+      Demo mit 6 Mannschaften (Herren 4/5, Damen 2/3, U18 m, U16 w). Zeitfenster: -2 bis +12 Tage.
+    </p>
+  </body>
+</html>
