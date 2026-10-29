@@ -812,13 +812,14 @@
       // Die Karte traegt ihren Kontext selbst (kein graues Label mehr,
       // keine separate Live-Leiste):
       //  - vor dem Spiel: weiss, Badge "📅 Heute · HH:MM", Paarung, 📌
-      //  - laeuft es (st=1, fi!=1, heute): dieselbe Karte wird rot mit
+      //  - ANGELEGT (Ticker existiert, fi!=1): dieselbe Karte wird rot mit
       //    pulsierendem Punkt, Badge "LIVE" – die Karte IST der Button
       //  - angepinnt: roter Ring um die rote Karte
-      // Klickbar ist die Karte NUR im LIVE-Zustand (st=1, fi!=1) –
-      // bewusst kein Zwischenzustand (Nutzer-Entscheidung 29.10.):
-      // sonst waere die Karte klickbar, obwohl der Index das laufende
-      // Spiel noch nicht gemeldet hat (10-Min-Takt).
+      // Klickbar + rot ist die Karte, sobald das Backend den Ticker
+      // zum Spiel ANGELEGT hat (an-Flag, Detail-URL existiert) und das
+      // Spiel nicht beendet ist – NUR im LIVE-Zustand, kein
+      // Zwischenzustand (Nutzer-Regel 29.10.: geplant = unklickbar,
+      // angelegt = rot & klickbar).
       function renderHeuteRow() {
         heuteRow.innerHTML = "";
         heuteRow.style.display = "none";
@@ -837,16 +838,15 @@
         spiele.forEach((m) => {
           const url = "https://bvv.sams-ticker.de/detail/" + m.id;
           const pinAktiv = pinOf(t.idx) === url;
-          // Genau ZWEI Zustaende (Nutzer-Entscheidung 29.10. abends):
-          //  1. nicht klickbar (weiss, Badge "Heute · HH:MM")
-          //  2. LIVE (rot, pulsierend, klickbar): st=1, fi!=1, heute.
-          // Bewusst KEIN Zwischenzustand "angelegt, klickbar, aber
-          // weiss": laeuft das Spiel schon und der 10-Min-Index ist
-          // noch nicht aktualisiert, waere die Karte klickbar ohne
-          // LIVE-Optik - genau das soll es nicht geben.
+          // Genau ZWEI Zustaende (Nutzer-Entscheidung 29.10. nachts):
+          //  1. nur geplant (weiss, nicht klickbar, Badge "Heute · HH:MM")
+          //  2. ANGELEGT (rot, pulsierend, klickbar, Badge "LIVE"):
+          //     das Backend hat einen Ticker-Eintrag angelegt, es gibt
+          //     also eine Detail-URL. DAS ist der Live-Zustand –
+          //     i.d.R. schon beim Aufwaermen, bevor der Ball fliegt.
           // "Heute"-Beschraenkung bewusst: Backend haelt Ticker offen
-          // eingestellter Spiele wochenlang auf started (Amper-Fall).
-          const live = !!(m.st && !m.fi);
+          // eingestellter Spiele wochenlang angelegt (Amper-Fall).
+          const live = !!(m.an && !m.fi);
           const zeit = zeitFmt.format(new Date(m.date));
           const card = document.createElement("button");
           card.className = "heutecard" + (live ? " live" : "") + (pinAktiv ? " pinned" : "") + (!live ? " inaktiv" : "");
@@ -928,10 +928,13 @@
         const idx = [];
         if (data && data.matchDays) {
           data.matchDays.forEach((md) => (md.matches || []).forEach((m) => {
-            // st = gestartet, fi = beendet: Live-Flags aus den
-            // matchStates (seit 29.10. im Index). Aeltere Indizes
-            // ohne diese Felder zeigen keine klickbare LIVE-Karte.
-            idx.push({ series: m.matchSeries, t1: normTeam(m.teamDescription1), t2: normTeam(m.teamDescription2), t1r: m.teamDescription1, t2r: m.teamDescription2, date: m.date, id: m.id, st: m.st === 1, fi: m.fi === 1 });
+            // an = angelegt: Backend hat einen Ticker-Eintrag
+            // (matchStates), i.d.R. schon beim Aufwaermen – dann gibt
+            // es die Detail-URL. st = gestartet, fi = beendet.
+            // Karte wird rot/klickbar sobald ANGELEGT (Nutzer-Regel),
+            // nach fi=1 wieder normal. Aeltere Indizes ohne st/fi:
+            // keine LIVE-Karte.
+            idx.push({ series: m.matchSeries, t1: normTeam(m.teamDescription1), t2: normTeam(m.teamDescription2), t1r: m.teamDescription1, t2r: m.teamDescription2, date: m.date, id: m.id, an: (m.st !== undefined && m.st !== null), st: m.st === 1, fi: m.fi === 1 });
           }));
         }
         tickerIndex = idx;
