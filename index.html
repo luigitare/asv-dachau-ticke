@@ -172,19 +172,20 @@
       .heutecard .hc-pin { font-size: .8rem; }
       .heutecard b { font-weight: 600; color: #374151; }
       .heutecard b.asv { color: #1e3a8a; }
-
-      /* LIVE-Button: laeuft gerade ein Spiel der Liga (heute)? */
-      .livebar { display: none; gap: .4rem; flex-wrap: wrap; margin: 0 0 .55rem; }
-      .livebar.show { display: flex; }
-      .livebtn {
-        display: flex; align-items: center; gap: .5rem;
-        border: 1px solid #dc2626; background: #fef2f2; color: #991b1b;
-        border-radius: 10px; padding: .5rem .8rem; font-size: .82rem;
-        cursor: pointer; white-space: normal;
-      }
-      .livebtn:hover { background: #fee2e2; }
-      .livebtn b { color: #b91c1c; }
-      .livebtn.pinned { outline: 2px solid #dc2626; }
+      /* Noch nicht gestartetes Spiel: Karte nur Anzeige, nicht klickbar
+         (es gibt noch keine Detail-URL im Ticker-Backend) */
+      .heutecard.inaktiv { cursor: default; }
+      .heutecard.inaktiv:hover { border-color: #d1d5db; background: #fff; }
+      /* LIVE-Karte: Spiel gestartet, nicht beendet, heute datiert.
+         Die GLEICHE Heute-Karte wird zum Live-Button – rot mit
+         pulsierendem Punkt, Badge zeigt "LIVE" statt der Uhrzeit. */
+      .heutecard.live { border-color: #dc2626; background: #fef2f2; color: #991b1b; cursor: pointer; }
+      .heutecard.live:hover { background: #fee2e2; border-color: #dc2626; }
+      .heutecard.live .hc-zeit { color: #b91c1c; }
+      .heutecard.live b { color: #b91c1c; }
+      .heutecard.live b.asv { color: #1e3a8a; }
+      /* Angepinntes LIVE-Spiel: roter Ring um die Karte */
+      .heutecard.live.pinned { outline: 2px solid #dc2626; border-color: #dc2626; background: #fef2f2; }
       .livedot { width: 9px; height: 9px; border-radius: 999px; background: #dc2626; animation: livepulse 1.4s infinite; flex-shrink: 0; }
       @keyframes livepulse {
         0% { box-shadow: 0 0 0 0 rgba(220,38,38,.55); }
@@ -423,7 +424,6 @@
         el.innerHTML = `
           <div class="tabpane" id="e-${i}-ticker">
             <div class="card wide">
-              <div class="livebar"></div>
               <div class="pinbar"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button class="pinbarclear">✕ entfernen</button></div>
               <div class="pinwrap"><div>
                 <div class="pinrow">
@@ -795,8 +795,8 @@
 
       // ---------------- Heute-Zeile unter der Tab-Leiste ----------------
       // tickerIndex: schlanker Live-Ticker-Index (ticker-index.json).
-      // WOHLBEACHTET: Hier deklariert, weil renderHeuteRow/renderLiveBar
-      // es schon beim ersten renderAll() lesen - eine spaetere let-
+      // WOHLBEACHTET: Hier deklariert, weil renderHeuteRow
+      // es schon beim ersten renderAll() liest - eine spaetere let-
       // Deklaration waere Temporal-Dead-Zone und wuerde den App-Start
       // crashen (gefixt 29.10.).
       let tickerIndex = null; // null = noch nicht geladen, [] = fehlgeschlagen/leer
@@ -805,6 +805,19 @@
       // an: der Live-Ticker-Reiter laedt dann genau dieses Spiel.
       const heuteRow = document.getElementById("heuteRow");
       const escHtml = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      function berlinTag(ts) {
+        return new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(ts));
+      }
+      // Zeigt HEUTE-Spiele des gewaehlten Wettbewerbs als EINE Karte.
+      // Die Karte traegt ihren Kontext selbst (kein graues Label mehr,
+      // keine separate Live-Leiste):
+      //  - vor dem Spiel: weiss, Badge "📅 Heute · HH:MM", Paarung, 📌
+      //  - laeuft es (st=1, fi!=1, heute): dieselbe Karte wird rot mit
+      //    pulsierendem Punkt, Badge "LIVE" – die Karte IST der Button
+      //  - angepinnt: roter Ring um die rote Karte
+      // Klickbar ist die Karte erst, wenn das Spiel im Backend
+      // angelegt/gestartet wurde (st=1) – vorher gibt es keine
+      // Detail-URL im Ticker-Backend, ein Pin waere ins Leere.
       function renderHeuteRow() {
         heuteRow.innerHTML = "";
         heuteRow.style.display = "none";
@@ -812,83 +825,46 @@
         if (!tickerIndex || !tickerIndex.length) return;
         const t = CONFIG[state.entry];
         if (!t || !t.wettbewerb) return;
-        const fmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
         const zeitFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
-        const heute = fmt.format(new Date());
+        const heute = berlinTag(Date.now());
         const spiele = tickerIndex
-          .filter((m) => m.series === t.wettbewerb && fmt.format(new Date(m.date)) === heute)
+          .filter((m) => m.series === t.wettbewerb && berlinTag(m.date) === heute)
           .sort((a, b) => a.date - b.date);
         if (!spiele.length) return;
-        const label = document.createElement("div");
-        label.className = "rowlabel2";
-        label.textContent = "📅 Heute in dieser Liga · " + spiele.length + " Spiel" + (spiele.length > 1 ? "e" : "") + " · antippen = anpinnen 📌";
-        heuteRow.appendChild(label);
         const wrap = document.createElement("div");
         wrap.className = "heutecards";
         spiele.forEach((m) => {
           const url = "https://bvv.sams-ticker.de/detail/" + m.id;
           const pinAktiv = pinOf(t.idx) === url;
+          // Live = gestartet, nicht beendet, heute datiert.
+          // "Heute"-Beschraenkung bewusst: Backend haelt Ticker offen
+          // eingestellter Spiele wochenlang auf started (Amper-Fall).
+          const live = !!(m.st && !m.fi);
           const zeit = zeitFmt.format(new Date(m.date));
           const card = document.createElement("button");
-          card.className = "heutecard" + (pinAktiv ? " pinned" : "");
-          card.title = "Live-Ticker dieses Spiels laden";
-          card.innerHTML =
-            '<span class="hc-zeit">' + (zeit === "00:00" ? "–" : zeit) + '</span>' +
-            '<span><b' + (m.t1r && m.t1r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t1r) + '</b> – <b' + (m.t2r && m.t2r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t2r) + '</b></span>' +
-            (pinAktiv ? '<span class="hc-pin">📌</span>' : "");
-          card.onclick = () => {
-            state.tab = "ticker";
-            saveState();
-            renderAll();
-            if (t.el && t.el._pinTo) t.el._pinTo(url);
-          };
-          wrap.appendChild(card);
-        });
-        heuteRow.appendChild(wrap);
-        heuteRow.style.display = "block";
-      }
-
-      // ---------------- LIVE-Button im Live-Ticker ----------------
-      // Laeuft gerade ein Spiel des gewaehlten Wettbewerbs (HEUTE
-      // datiert)? Dann zeigt der Live-Ticker-Reiter einen Live-Button
-      // mit der Paarung – OHNE Spielstand, der Index kommt vom
-      // 10-Minuten-Rhythmus. Klick = Pin auf genau dieses Spiel,
-      // vorher bleibt die Liga-Uebersicht im Ticker.
-      // "Heute"-Beschraenkung bewusst: Backend haelt Ticker offen
-      // eingestellter Spiele wochenlang auf started (Amper-Fall).
-      function berlinTag(ts) {
-        return new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(ts));
-      }
-      function renderLiveBar() {
-        CONFIG.forEach((t) => {
-          const bar = t.el ? t.el.querySelector(".livebar") : null;
-          if (!bar) return;
-          bar.innerHTML = "";
-          bar.classList.remove("show");
-          if (!t.wettbewerb || !tickerIndex || !tickerIndex.length) return;
-          const heute = berlinTag(Date.now());
-          const liveSpiele = tickerIndex
-            .filter((m) => m.series === t.wettbewerb && m.st && !m.fi && berlinTag(m.date) === heute)
-            .sort((a, b) => a.date - b.date);
-          liveSpiele.forEach((m) => {
-            const url = "https://bvv.sams-ticker.de/detail/" + m.id;
-            const pinAktiv = pinOf(t.idx) === url;
-            const b = document.createElement("button");
-            b.className = "livebtn" + (pinAktiv ? " pinned" : "");
-            b.title = "Dieses Spiel läuft gerade – Live-Ticker öffnen (anpinnen)";
-            b.innerHTML = '<span class="livedot"></span><b>LIVE</b> · ' +
-              "<b>" + escHtml(m.t1r) + "</b> – <b>" + escHtml(m.t2r) + "</b>" +
-              (pinAktiv ? " · 📌" : "");
-            b.onclick = () => {
+          card.className = "heutecard" + (live ? " live" : "") + (pinAktiv ? " pinned" : "") + (!live ? " inaktiv" : "");
+          // Badge: LIVE mit pulsierendem Punkt, sonst Datum + Uhrzeit
+          const badge = live
+            ? '<span class="livedot"></span><span class="hc-zeit">LIVE</span>'
+            : '<span class="hc-zeit">📅 Heute · ' + (zeit === "00:00" ? "–" : zeit) + '</span>';
+          const paarung =
+            '<span><b' + (m.t1r && m.t1r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t1r) + '</b> – <b' + (m.t2r && m.t2r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t2r) + '</b> 📌</span>';
+          card.innerHTML = badge + paarung;
+          if (live) {
+            card.title = "Dieses Spiel läuft gerade – Live-Ticker öffnen (anpinnen)";
+            card.onclick = () => {
               state.tab = "ticker";
               saveState();
               renderAll();
               if (t.el && t.el._pinTo) t.el._pinTo(url);
             };
-            bar.appendChild(b);
-          });
-          if (liveSpiele.length) bar.classList.add("show");
+          } else {
+            card.title = "Klickbar, sobald das Spiel im Ticker startet";
+          }
+          wrap.appendChild(card);
         });
+        heuteRow.appendChild(wrap);
+        heuteRow.style.display = "block";
       }
 
       function renderAll() {
@@ -920,7 +896,6 @@
         renderEntryRow();
         renderTabRow();
         renderHeuteRow();
-        renderLiveBar();
         showEntry();
         renderPlaceholder();
         // 📌-Knopf zeigt an, ob die aktive Ansicht einen Pin hat
@@ -954,7 +929,6 @@
         }
         tickerIndex = idx;
         renderHeuteRow();
-        renderLiveBar();
       }
       function refreshTickerIndex() {
         if (tickerIndexLaden) return;
@@ -1070,3 +1044,4 @@
     </script>
   </body>
 </html>
+
