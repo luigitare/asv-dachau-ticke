@@ -27,18 +27,6 @@
       }
       .logo { height: 40px; width: auto; flex-shrink: 0; display: block; }
       .mpSep { border-top: 1px solid #e5e7eb; margin: .7rem 0 .2rem; }
-      .menufoot { display: flex; justify-content: flex-end; margin-top: .6rem; }
-      .nofilterbtn {
-        border: 1px solid #d1d5db; background: #fff; border-radius: 999px;
-        padding: .4rem .9rem; font-size: .8rem; cursor: pointer;
-      }
-      /* Knopf "Alle ASV-Spiele heute" (links neben Ohne-ASV-Filter),
-         dunkelblau als Akzent, gleiche Form wie .nofilterbtn */
-      .asvheutebtn {
-        border: 1px solid #1e3a8a; background: #1e3a8a; color: #fff;
-        border-radius: 999px; padding: .4rem .9rem; font-size: .8rem;
-        cursor: pointer; font-weight: 600;
-      }
       /* Aufklappliste: eine Karte pro ASV-Spiel heute */
       .asvheute { display: flex; flex-direction: column; gap: .4rem; margin: 0 0 .55rem; }
       .asvcard {
@@ -235,17 +223,16 @@
       <!-- Menü als Overlay: blendet ÜBER den Inhalt -->
       <div class="menupanel" id="menuPanel">
         <div class="card">
-          <div class="rowlabel2">Mannschaft</div>
+          <div class="rowlabel2">Ansicht</div>
+          <!-- Zeile 0: Modus-Wahl (ersetzt die frueheren Fuss-Buttons) -->
+          <div class="filterrow" id="modeRow"></div>
+          <div class="rowlabel2" id="teamRowsLabel">Mannschaft</div>
           <!-- Stufe 1: Kategorie -->
           <div class="filterrow" id="catRow"></div>
           <!-- Stufe 2: Mannschaft / Altersklasse -->
           <div class="filterrow" id="grpRow"></div>
           <!-- Stufe 3: konkretes Team / Wettbewerb -->
           <div class="filterrow" id="entryRow"></div>
-          <div class="menufoot">
-            <button class="asvheutebtn" id="asvHeuteBtn" title="Alle ASV-Spiele heute auf einen Blick">🔥 ASV-Spiele heute</button>
-            <button class="nofilterbtn" id="noFilterBtn" title="Nur Ticker mit allen BVV-Spielen">🌐 Ohne ASV-Filter</button>
-          </div>
           <button class="closebtn" id="menuCloseBtn">✕ Menü schließen</button>
         </div>
       </div>
@@ -425,12 +412,12 @@
       // Beim Start: nichts ausgewählt. Falls gespeichert, wird die
       // letzte Auswahl aus dem localStorage wiederhergestellt
       // (überlebt Tab schließen & Browser-Neustart, ohne Cookie-Alarm).
-      let state = { cat: null, grp: null, entry: null, noFilter: false, lastGrpByCat: {}, lastEntryByGrp: {} };
+      let state = { cat: null, grp: null, entry: null, noFilter: false, asvHeute: false, lastGrpByCat: {}, lastEntryByGrp: {} };
       const STORE_KEY = "asv-dachau-auswahl-v1";
       try {
         const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
         if (saved && typeof saved === "object") state = Object.assign(
-          { cat: null, grp: null, entry: null, noFilter: false, lastGrpByCat: {}, lastEntryByGrp: {} }, saved
+          { cat: null, grp: null, entry: null, noFilter: false, asvHeute: false, lastGrpByCat: {}, lastEntryByGrp: {} }, saved
         );
       } catch (e) { /* ignorieren */ }
 
@@ -593,7 +580,7 @@
       const menuPanel = document.getElementById("menuPanel");
       const tabRow = document.getElementById("tabRow");
       // Menü beim ersten Besuch ohne Auswahl automatisch öffnen
-      let menuOpen = state.entry === null;
+      let menuOpen = state.entry === null && !state.noFilter && !state.asvHeute;
       menuBtn.onclick = () => { menuOpen = !menuOpen; renderAll(); };
       document.getElementById("menuCloseBtn").onclick = () => { menuOpen = false; renderAll(); };
 
@@ -618,19 +605,8 @@
         const act = document.querySelector(".entry.active");
         if (act && act._reload) act._reload();
       };
-      document.getElementById("noFilterBtn").onclick = () => {
-        state.noFilter = true;
-        state.cat = null; state.grp = null; state.entry = null;
-        menuOpen = false;
-        renderAll();
-      };
-      // ASV-Spiele heute: Liste auf-/zuklappen, Menü schliessen
-      document.getElementById("asvHeuteBtn").onclick = (ev) => {
-        ev.stopPropagation();
-        asvHeuteOpen = !asvHeuteOpen;
-        menuOpen = false;
-        renderAll();
-      };
+      // Die drei Modus-Buttons (Zeile 0 im Menü) werden in renderModeRow()
+      // gerendert – hier nur die View-Referenzen, die schon gebraucht wurden.
       noFilterView._reload = () => {
         nfFrame.src = "about:blank";
         setTimeout(() => { nfFrame.src = nfTargetSrc(); }, 50);
@@ -722,11 +698,39 @@
         }
       }
 
+      // ---------------- Modus-Zeile (Zeile 0 des Menüs) ----------------
+      // Drei Modi: Team-Auswahl (gewohnte Logik), alle ASV-Spiele heute,
+      // ohne Filter (BVV-Ticker mit allen Spielen).
+      const modeRow = document.getElementById("modeRow");
+      const teamRowsLabel = document.getElementById("teamRowsLabel");
+      function renderModeRow() {
+        modeRow.innerHTML = "";
+        modeRow.appendChild(chip("ASV Team", !state.noFilter && !state.asvHeute, () => {
+          state.noFilter = false;
+          state.asvHeute = false;
+          renderAll(); // Menü bleibt offen -> Mannschaft wie gewohnt wählen
+        }));
+        modeRow.appendChild(chip("alle ASV Teams", !!state.asvHeute, () => {
+          state.noFilter = false;
+          state.asvHeute = true;
+          menuOpen = false;
+          renderAll();
+        }));
+        modeRow.appendChild(chip("ohne Filter", !!state.noFilter, () => {
+          state.noFilter = true;
+          state.asvHeute = false;
+          state.cat = null; state.grp = null; state.entry = null;
+          menuOpen = false;
+          renderAll();
+        }));
+      }
+
       function renderCatRow() {
         catRow.innerHTML = '<div class="rowlabel">1 · Bereich</div>';
         CATS.forEach((c) => {
           catRow.appendChild(chip(c.label, state.cat === c.id, () => {
             state.noFilter = false; // ASV-Auswahl aktiv -> Normalmodus
+            state.asvHeute = false;
             state.cat = c.id;
             const g = state.lastGrpByCat[c.id];
             state.grp = (g && grpsOfCat(c.id).includes(g)) ? g : null;
@@ -832,7 +836,7 @@
           ph.innerHTML = '👋 Tippe oben auf <b>☰ Menü</b> und wähle deine Mannschaft – Live-Ticker, Spielplan und Tabelle erscheinen sofort.';
           teamview.appendChild(ph);
         }
-        ph.style.display = (state.entry === null && !state.noFilter) ? "block" : "none";
+        ph.style.display = (state.entry === null && !state.noFilter && !state.asvHeute) ? "block" : "none";
       }
 
       // ---------------- Heute-Zeile unter der Tab-Leiste ----------------
@@ -865,7 +869,7 @@
       function renderHeuteRow() {
         heuteRow.innerHTML = "";
         heuteRow.style.display = "none";
-        if (state.entry === null || state.noFilter) return;
+        if (state.entry === null || state.noFilter || state.asvHeute) return;
         if (!tickerIndex || !tickerIndex.length) return;
         const t = CONFIG[state.entry];
         if (!t || !t.wettbewerb) return;
@@ -926,7 +930,6 @@
       //    springt zum Mannschaftsfilter und pinnt das Spiel an
       //  - beendet (fi=1): grau mit Satz-Ergebnis (sp1:sp2)
       const asvHeuteRow = document.getElementById("asvHeute");
-      let asvHeuteOpen = false;
       // Passenden CONFIG-Eintrag zum Spiel suchen (fuer Klasse und
       // Filterwechsel): Wettbewerb-UUID muss passen; gibt es mehrere
       // Eintraege in derselben Liga (zwei ASV-Teams), den zur Paarung
@@ -940,7 +943,7 @@
       function renderAsvHeuteRow() {
         asvHeuteRow.innerHTML = "";
         asvHeuteRow.style.display = "none";
-        if (!asvHeuteOpen) return;
+        if (!state.asvHeute) return;
         const wrap = document.createElement("div");
         wrap.className = "asvheute";
         if (!tickerIndex || !tickerIndex.length) {
@@ -982,6 +985,7 @@
               card.title = "Zum Live-Ticker: Mannschaftsfilter wechseln + Spiel anpinnen";
               card.onclick = () => {
                 state.noFilter = false;
+                state.asvHeute = false;
                 state.cat = t.cat; state.grp = t.grp; state.entry = t.idx;
                 rememberEntry(t.cat, t.grp, t.idx);
                 state.tab = "ticker";
@@ -1010,6 +1014,8 @@
         // Öffnen immer sieht
         if (state.noFilter) {
           menuBtnLabel.textContent = "🌐 Alle Spiele";
+        } else if (state.asvHeute) {
+          menuBtnLabel.textContent = "🔥 ASV heute";
         } else if (state.entry !== null) {
           const e = CONFIG[state.entry];
           const cat = CATS.find((c) => c.id === state.cat);
@@ -1023,6 +1029,13 @@
         menuBtn.classList.toggle("open", menuOpen);
         menuPanel.classList.toggle("open", menuOpen);
         tabRow.style.display = (state.entry !== null && !state.noFilter) ? "flex" : "none";
+        // Modus-Zeile immer, Mannschafts-Zeilen nur im Team-Modus
+        renderModeRow();
+        const teamMode = !state.noFilter && !state.asvHeute;
+        teamRowsLabel.style.display = teamMode ? "" : "none";
+        catRow.style.display = teamMode ? "" : "none";
+        grpRow.style.display = teamMode ? "" : "none";
+        entryRow.style.display = teamMode ? "" : "none";
         renderCatRow();
         renderGrpRow();
         renderEntryRow();
