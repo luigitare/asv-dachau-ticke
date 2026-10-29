@@ -54,10 +54,12 @@ jobs:
             echo "  Egress-IP: $(curl -s -m 15 https://api.ipify.org || echo 'unbekannt')"
             echo ""
             echo "--- Kontroll-Abruf 1: bvv.sams-ticker.de Startseite (erwartet 200):"
-            curl -sS -m 30 -o /dev/null -w "  HTTP %{http_code}, remote_ip=%{remote_ip}\n" https://bvv.sams-ticker.de/ || echo "  fehlgeschlagen"
+            curl -sS -m 30 -o /dev/null -w "  HTTP %{http_code}, remote_ip=%{remote_ip}
+" https://bvv.sams-ticker.de/ || echo "  fehlgeschlagen"
             echo ""
             echo "--- Kontroll-Abruf 2: Backend OHNE Origin-Header (erwartet 403):"
-            curl -sS --compressed -m 60 -o /dev/null -w "  HTTP %{http_code}\n" https://backend.sams-ticker.de/live/indoor/tickers/bvv || echo "  fehlgeschlagen"
+            curl -sS --compressed -m 60 -o /dev/null -w "  HTTP %{http_code}
+" https://backend.sams-ticker.de/live/indoor/tickers/bvv || echo "  fehlgeschlagen"
             echo ""
             echo "--- Kontroll-Abruf 3: Backend MIT bvv-Origin (der eigentliche Fall):"
             curl -sS --compressed -m 60 -D /tmp/diag_hdr.txt \
@@ -82,14 +84,24 @@ jobs:
           python3 - <<'PYEOF'
           import json
           data = json.load(open('/tmp/tickers.json'))
+          states = data.get("matchStates") or {}
           slim = {"matchDays": []}
           asv_series = {}
           for md in data.get("matchDays", []):
               ms = []
               for m in md.get("matches", []):
-                  ms.append({"id": m["id"], "teamDescription1": m["teamDescription1"],
-                             "teamDescription2": m["teamDescription2"], "date": m["date"],
-                             "matchSeries": m["matchSeries"]})
+                  item = {"id": m["id"], "teamDescription1": m["teamDescription1"],
+                          "teamDescription2": m["teamDescription2"], "date": m["date"],
+                          "matchSeries": m["matchSeries"]}
+                  # Live-Flags aus matchStates (Key = Spiel-Id):
+                  # st=1 gestartet, fi=1 beendet. App: live = st==1 und
+                  # fi!=1 und Spiel ist heute (Berlin) - schliesst
+                  # wochenlang offene Ticker (Amper-Fall) aus.
+                  st = states.get(m["id"])
+                  if st:
+                      item["st"] = 1 if st.get("started") else 0
+                      item["fi"] = 1 if st.get("finished") else 0
+                  ms.append(item)
                   if "ASV Dachau" in m["teamDescription1"] or "ASV Dachau" in m["teamDescription2"]:
                       entry = asv_series.setdefault(m["matchSeries"], {
                           "wettbewerb": m["matchSeries"], "spiele": 0,
