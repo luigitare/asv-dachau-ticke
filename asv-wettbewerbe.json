@@ -1,0 +1,172 @@
+{
+ "stand": "automatisch generiert",
+ "wettbewerbe": [
+  {
+   "wettbewerb": "71d66706-e82e-4bc8-bd7f-2ce0939496a5",
+   "spiele": 2,
+   "asvTeams": [
+    "ASV Dachau IV"
+   ],
+   "gegnerBeispiele": [
+    "FTM Schwabing II",
+    "Lechrain Volleys"
+   ]
+  },
+  {
+   "wettbewerb": "aea4d3ff-56de-403a-b67d-2fba4bf83fb8",
+   "spiele": 2,
+   "asvTeams": [
+    "ASV Dachau V"
+   ],
+   "gegnerBeispiele": [
+    "MTV Pfaffenhofen",
+    "SF Harteck"
+   ]
+  },
+  {
+   "wettbewerb": "e4d55a45-caac-4452-9aee-9c3491273b78",
+   "spiele": 3,
+   "asvTeams": [
+    "ASV Dachau VII",
+    "ASV Dachau VIII"
+   ],
+   "gegnerBeispiele": [
+    "SF Harteck III",
+    "ASV Dachau VIII",
+    "ASV Dachau VII"
+   ]
+  },
+  {
+   "wettbewerb": "00572b76-b0a6-4730-9b69-965ef2c22335",
+   "spiele": 2,
+   "asvTeams": [
+    "ASV Dachau III"
+   ],
+   "gegnerBeispiele": [
+    "PSV München",
+    "SG Amper Volleys"
+   ]
+  },
+  {
+   "wettbewerb": "d14a83b4-3109-4be5-835b-e56282234a5b",
+   "spiele": 2,
+   "asvTeams": [
+    "ASV Dachau IV"
+   ],
+   "gegnerBeispiele": [
+    "SG Amper Volleys II",
+    "BC Aresing"
+   ]
+  },
+  {
+   "wettbewerb": "d5f041f4-9e64-427c-ba0d-a05d4466f98c",
+   "spiele": 2,
+   "asvTeams": [
+    "ASV Dachau VI"
+   ],
+   "gegnerBeispiele": [
+    "TUSC Obermenzing",
+    "Team München"
+   ]
+  },
+  {
+   "wettbewerb": "12ad8590-9ed2-4e10-9356-9c296bed5568",
+   "spiele": 1,
+   "asvTeams": [
+    "ASV Dachau III"
+   ],
+   "gegnerBeispiele": [
+    "SVS Türkheim"
+   ]
+  },
+  {
+   "wettbewerb": "c1368ade-ef29-4276-8802-4255b08f0b04",
+   "spiele": 7,
+   "asvTeams": [
+    "ASV Dachau",
+    "ASV Dachau II"
+   ],
+   "gegnerBeispiele": [
+    "TSV Mühldorf",
+    "TSV Unterhaching",
+    "ASV Dachau II",
+    "ASV Dachau",
+    "TSV Unterhaching II"
+   ]
+  },
+  {
+   "wettbewerb": "697b5a4a-09ad-4d03-9ceb-67c25998e305",
+   "spiele": 4,
+   "asvTeams": [
+    "ASV Dachau III"
+   ],
+   "gegnerBeispiele": [
+    "FC Puchheim",
+    "ESV München",
+    "TUSC Obermenzing II",
+    "VSG Isar-Loisach"
+   ]
+  },
+  {
+   "wettbewerb": "9e4b2072-f6a5-4baa-96ff-338f9a6f4cd2",
+   "spiele": 13,
+   "asvTeams": [
+    "ASV Dachau",
+    "ASV Dachau II",
+    "ASV Dachau III",
+    "ASV Dachau IV"
+   ],
+   "gegnerBeispiele": [
+    "TSV Unterhaching III",
+    "TSV Herrsching II",
+    "TSV Herrsching",
+    "ASV Dachau III",
+    "ASV Dachau II"
+   ]
+  },
+  {
+   "wettbewerb": "d1148f44-a0fb-4476-aca5-a5e3aaa2b478",
+   "spiele": 2,
+   "asvTeams": [
+    "ASV Dachau IV"
+   ],
+   "gegnerBeispiele": [
+    "TSG Maisach",
+    "PSV München"
+   ]
+  },
+  {
+   "wettbewerb": "4e072a0c-8b29-4ab3-b771-a881ec13a085",
+   "spiele": 2,
+   "asvTeams": [
+    "ASV Dachau III"
+   ],
+   "gegnerBeispiele": [
+    "SC Freising",
+    "SV Eitensheim"
+   ]
+  },
+  {
+   "wettbewerb": "906589ab-7222-4fbd-9f1b-12b36862517b",
+   "spiele": 2,
+   "asvTeams": [
+    "ASV Dachau III"
+   ],
+   "gegnerBeispiele": [
+    "TUSC Obermenzing",
+    "DJK SB München-Ost"
+   ]
+  },
+  {
+   "wettbewerb": "c7a7d183-b089-47c4-a0b8-cf7c625acf4a",
+   "spiele": 2,
+   "asvTeams": [
+    "ASV Dachau II"
+   ],
+   "gegnerBeispiele": [
+    "TSV Unterhaching",
+    "SV Lohhof"
+   ]
+  }
+ ]
+}
