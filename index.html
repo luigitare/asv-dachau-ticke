@@ -172,9 +172,6 @@
       .vapi tr.marked td { background: #eff6ff; font-weight: 600; }
       .vapi tr.eigenesheimspiel td { background: #fefce8; }
       .vapi .team, .vapi .teama, .vapi .teamb { display: table-cell !important; max-width: 45vw; white-space: normal !important; }
-      /* Spielplan-Zeilen klickbar (öffnen BVV-Spieldetail mit Live-Ticker) */
-      .vapi tr.spiel.clickable { cursor: pointer; }
-      .vapi tr.spiel.clickable:hover td { background: #dbeafe; }
       /* Heute-Zeile: Spiele des gewaehlten Wettbewerbs an diesem Tag */
       #heuteRow { margin: 0 0 .55rem; }
       #heuteRow .rowlabel2 { margin: 0 0 .25rem; }
@@ -402,12 +399,6 @@
         try { localStorage.setItem(PIN_KEY, JSON.stringify(pins)); } catch (e) { }
       }
       function targetSrc(t) { return pinOf(t.idx) || t.externalUrl || (TICKER_BASE + tickerIdOf(t)); }
-      // Spieldetail-Link (klickbare Spielplan-Zeilen). Verifiziert für
-      // Jugend-Ligen; für Erwachsenen/Mixed ist der Pfad noch unklar
-      // -> dort vorerst kein Klick (detailBase leer).
-      const SPIELDETAIL_JUGEND = "https://volleyball.bayern/ergebnisse/jugend/ueberbezirkliche-meisterschaften/spiel-";
-      const detailBaseOf = (e) => (e.cat === "jm" || e.cat === "jw") ? SPIELDETAIL_JUGEND : null;
-
       // ---------------- Auswahl-Status ----------------
       // Beim Start: nichts ausgewählt. Falls gespeichert, wird die
       // letzte Auswahl aus dem localStorage wiederhergestellt
@@ -700,7 +691,7 @@
 
       // ---------------- Modus-Zeile (Zeile 0 des Menüs) ----------------
       // Drei Modi: Team-Auswahl (gewohnte Logik), alle ASV-Spiele heute,
-      // ohne Filter (BVV-Ticker mit allen Spielen).
+      // alle BVV-Spiele heute (ehem. "ohne Filter").
       const modeRow = document.getElementById("modeRow");
       const teamRowsLabel = document.getElementById("teamRowsLabel");
       function renderModeRow() {
@@ -710,13 +701,14 @@
           state.asvHeute = false;
           renderAll(); // Menü bleibt offen -> Mannschaft wie gewohnt wählen
         }));
-        modeRow.appendChild(chip("alle ASV Teams", !!state.asvHeute, () => {
+        modeRow.appendChild(chip("alle ASV Spiele heute", !!state.asvHeute, () => {
           state.noFilter = false;
           state.asvHeute = true;
+          state.tab = "ticker"; // Spielplan/Tabelle-Tabs sind in diesem Modus weg
           menuOpen = false;
           renderAll();
         }));
-        modeRow.appendChild(chip("ohne Filter", !!state.noFilter, () => {
+        modeRow.appendChild(chip("alle BVV heute", !!state.noFilter, () => {
           state.noFilter = true;
           state.asvHeute = false;
           state.cat = null; state.grp = null; state.entry = null;
@@ -1013,9 +1005,9 @@
         // Menü-Knopf: zeigt die aktuelle Auswahl, damit man sie ohne
         // Öffnen immer sieht
         if (state.noFilter) {
-          menuBtnLabel.textContent = "🌐 Alle Spiele";
+          menuBtnLabel.textContent = "🌐 alle BVV heute";
         } else if (state.asvHeute) {
-          menuBtnLabel.textContent = "🔥 ASV heute";
+          menuBtnLabel.textContent = "🔥 ASV-Spiele heute";
         } else if (state.entry !== null) {
           const e = CONFIG[state.entry];
           const cat = CATS.find((c) => c.id === state.cat);
@@ -1028,7 +1020,9 @@
         }
         menuBtn.classList.toggle("open", menuOpen);
         menuPanel.classList.toggle("open", menuOpen);
-        tabRow.style.display = (state.entry !== null && !state.noFilter) ? "flex" : "none";
+        // Reiter (Spielplan/Tabelle/Ticker) nur im Team-Modus – im
+        // ASV-heute-Modus gibt es bewusst nur den Ticker ohne Reiter
+        tabRow.style.display = (state.entry !== null && !state.noFilter && !state.asvHeute) ? "flex" : "none";
         // Modus-Zeile immer, Mannschafts-Zeilen nur im Team-Modus
         renderModeRow();
         const teamMode = !state.noFilter && !state.asvHeute;
@@ -1092,73 +1086,6 @@
           .catch(() => { /* Netz weg: alter Stand bleibt, naechster Versuch in 10 Min */ })
           .finally(() => { tickerIndexLaden = false; });
       }
-      function tickerLinkFor(series, nameA, nameB, ddmm) {
-        if (!tickerIndex || !tickerIndex.length) return null;
-        const a = normTeam(nameA), b = normTeam(nameB);
-        const dd = ddmm.split(".")[0], mm = ddmm.split(".")[1];
-        const fmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit" });
-        const ddm = dd + "." + mm;
-        // Intl liefert "24.10." mit Schlusspunkt, die Zeile "24.10" ohne -> Punkt ignorieren
-        const sameDay = (m) => fmt.format(new Date(m.date)).replace(/\.$/, "") === ddm;
-        // exakter Treffer ...
-        let hits = tickerIndex.filter((m) =>
-          m.series === series &&
-          ((m.t1 === a && m.t2 === b) || (m.t1 === b && m.t2 === a)) &&
-          sameDay(m));
-        // ... sonst tolerantes Matching (Namensvarianten in Ticker vs. Spielplan)
-        if (!hits.length) {
-          const like = (x, y) => x.length >= 6 && y.length >= 6 && (x.startsWith(y) || y.startsWith(x));
-          hits = tickerIndex.filter((m) =>
-            m.series === series &&
-            ((like(m.t1, a) && like(m.t2, b)) || (like(m.t1, b) && like(m.t2, a))) &&
-            sameDay(m));
-        }
-        return hits[0] ? "https://bvv.sams-ticker.de/detail/" + hits[0].id : null;
-      }
-      setTimeout(refreshTickerIndex, 2500); // nach App-Start im Hintergrund nachladen
-      setInterval(refreshTickerIndex, 10 * 60 * 1000); // im 10-Min-Takt wie das HA-Update
-
-      // ---------------- Spielplan-Zeilen klickbar machen ----------------
-      function linkifySchedules() {
-        document.querySelectorAll(".vapi tr.spiel").forEach((row) => {
-          const entryEl = row.closest(".entry");
-          const id = entryEl ? entryEl.id.replace("entry-", "") : null;
-          const t = CONFIG[Number(id)];
-          const sid = row.getAttribute("data-vapi-spielid");
-          if (!t || !sid) return;
-          const datumEl = row.querySelector(".datum");
-          const teamA = row.querySelector(".teama");
-          const teamB = row.querySelector(".teamb");
-          if (!datumEl || !teamA || !teamB) return;
-          // 1. Live-Ticker-Link suchen (sobald der Index geladen ist)
-          if (!row.dataset.tickerurl && tickerIndex && tickerIndex.length) {
-            const link = tickerLinkFor(t.wettbewerb, teamA.textContent, teamB.textContent, datumEl.textContent);
-            if (link) row.dataset.tickerurl = link;
-          }
-          // 2. Klick-Verhalten: Ticker-Link hat Vorrang, sonst BVV-Spieldetail (Jugend)
-          if (row.dataset.tickerurl) {
-            if (row.dataset.linkified === "ticker") return;
-            row.dataset.linkified = "ticker";
-            row.classList.add("clickable");
-            row.title = "📡 Live-Ticker dieses Spiels im Ticker-Reiter laden";
-            row.addEventListener("click", () => {
-              state.tab = "ticker";
-              saveState();
-              renderAll();
-              if (t.el && t.el._pinTo) t.el._pinTo(row.dataset.tickerurl);
-            });
-          } else if (!row.dataset.linkified) {
-            const base = detailBaseOf(t);
-            if (base) {
-              row.dataset.linkified = "bvv";
-              row.classList.add("clickable");
-              row.title = "Spieldetails & Live-Ticker öffnen";
-              row.addEventListener("click", () => window.open(base + sid, "_blank", "noopener"));
-            }
-          }
-        });
-      }
-      setInterval(linkifySchedules, 1500);
 
       // ---------------- Fallback, falls Einbetten gesperrt ----------------
       setTimeout(() => {
