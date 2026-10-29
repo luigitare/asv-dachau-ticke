@@ -90,7 +90,6 @@
       .panel > div { overflow: hidden; }
       .panel .filterrow { margin: 0 0 .4rem; padding-top: .1rem; }
 
-
       .teamview { margin-top: .75rem; }
       .teamtitle { font-size: 1rem; font-weight: 700; margin: .25rem 0 .5rem; }
       .teamtitle small { color: #6b7280; font-weight: 400; }
@@ -173,6 +172,25 @@
       .heutecard .hc-pin { font-size: .8rem; }
       .heutecard b { font-weight: 600; color: #374151; }
       .heutecard b.asv { color: #1e3a8a; }
+
+      /* LIVE-Button: laeuft gerade ein Spiel der Liga (heute)? */
+      .livebar { display: none; gap: .4rem; flex-wrap: wrap; margin: 0 0 .55rem; }
+      .livebar.show { display: flex; }
+      .livebtn {
+        display: flex; align-items: center; gap: .5rem;
+        border: 1px solid #dc2626; background: #fef2f2; color: #991b1b;
+        border-radius: 10px; padding: .5rem .8rem; font-size: .82rem;
+        cursor: pointer; white-space: normal;
+      }
+      .livebtn:hover { background: #fee2e2; }
+      .livebtn b { color: #b91c1c; }
+      .livebtn.pinned { outline: 2px solid #dc2626; }
+      .livedot { width: 9px; height: 9px; border-radius: 999px; background: #dc2626; animation: livepulse 1.4s infinite; flex-shrink: 0; }
+      @keyframes livepulse {
+        0% { box-shadow: 0 0 0 0 rgba(220,38,38,.55); }
+        70% { box-shadow: 0 0 0 7px rgba(220,38,38,0); }
+        100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+      }
     </style>
   </head>
   <body>
@@ -405,6 +423,7 @@
         el.innerHTML = `
           <div class="tabpane" id="e-${i}-ticker">
             <div class="card wide">
+              <div class="livebar"></div>
               <div class="pinbar"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button class="pinbarclear">✕ entfernen</button></div>
               <div class="pinwrap"><div>
                 <div class="pinrow">
@@ -775,6 +794,12 @@
       }
 
       // ---------------- Heute-Zeile unter der Tab-Leiste ----------------
+      // tickerIndex: schlanker Live-Ticker-Index (ticker-index.json).
+      // WOHLBEACHTET: Hier deklariert, weil renderHeuteRow/renderLiveBar
+      // es schon beim ersten renderAll() lesen - eine spaetere let-
+      // Deklaration waere Temporal-Dead-Zone und wuerde den App-Start
+      // crashen (gefixt 29.10.).
+      let tickerIndex = null; // null = noch nicht geladen, [] = fehlgeschlagen/leer
       // Zeigt die Spiele des ausgewaehlten Wettbewerbs, die HEUTE
       // stattfinden (aus dem Ticker-Index). Antippen pinnt das Spiel
       // an: der Live-Ticker-Reiter laedt dann genau dieses Spiel.
@@ -823,6 +848,49 @@
         heuteRow.style.display = "block";
       }
 
+      // ---------------- LIVE-Button im Live-Ticker ----------------
+      // Laeuft gerade ein Spiel des gewaehlten Wettbewerbs (HEUTE
+      // datiert)? Dann zeigt der Live-Ticker-Reiter einen Live-Button
+      // mit der Paarung – OHNE Spielstand, der Index kommt vom
+      // 10-Minuten-Rhythmus. Klick = Pin auf genau dieses Spiel,
+      // vorher bleibt die Liga-Uebersicht im Ticker.
+      // "Heute"-Beschraenkung bewusst: Backend haelt Ticker offen
+      // eingestellter Spiele wochenlang auf started (Amper-Fall).
+      function berlinTag(ts) {
+        return new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(ts));
+      }
+      function renderLiveBar() {
+        CONFIG.forEach((t) => {
+          const bar = t.el ? t.el.querySelector(".livebar") : null;
+          if (!bar) return;
+          bar.innerHTML = "";
+          bar.classList.remove("show");
+          if (!t.wettbewerb || !tickerIndex || !tickerIndex.length) return;
+          const heute = berlinTag(Date.now());
+          const liveSpiele = tickerIndex
+            .filter((m) => m.series === t.wettbewerb && m.st && !m.fi && berlinTag(m.date) === heute)
+            .sort((a, b) => a.date - b.date);
+          liveSpiele.forEach((m) => {
+            const url = "https://bvv.sams-ticker.de/detail/" + m.id;
+            const pinAktiv = pinOf(t.idx) === url;
+            const b = document.createElement("button");
+            b.className = "livebtn" + (pinAktiv ? " pinned" : "");
+            b.title = "Dieses Spiel läuft gerade – Live-Ticker öffnen (anpinnen)";
+            b.innerHTML = '<span class="livedot"></span><b>LIVE</b> · ' +
+              "<b>" + escHtml(m.t1r) + "</b> – <b>" + escHtml(m.t2r) + "</b>" +
+              (pinAktiv ? " · 📌" : "");
+            b.onclick = () => {
+              state.tab = "ticker";
+              saveState();
+              renderAll();
+              if (t.el && t.el._pinTo) t.el._pinTo(url);
+            };
+            bar.appendChild(b);
+          });
+          if (liveSpiele.length) bar.classList.add("show");
+        });
+      }
+
       function renderAll() {
         // Gespeicherte Auswahl validieren: existiert der Eintrag noch?
         if (state.entry !== null && !CONFIG[state.entry]) { state.entry = null; state.grp = null; state.cat = null; menuOpen = true; }
@@ -852,6 +920,7 @@
         renderEntryRow();
         renderTabRow();
         renderHeuteRow();
+        renderLiveBar();
         showEntry();
         renderPlaceholder();
         // 📌-Knopf zeigt an, ob die aktive Ansicht einen Pin hat
@@ -870,25 +939,34 @@
       // Hintergrund (~2,5 MB komprimiert) und machen dann jede Spielplan-
       // Zeile klickbar: -> Live-Ticker genau dieses Spiels.
       const TICKERS_URL = "ticker-index.json"; // schlanker Index im Repo, per GitHub Action aktuell gehalten
-      let tickerIndex = null; // null = noch nicht geladen, [] = fehlgeschlagen/leer
       // "(H)" = Heimspielkennzeichen des BVV-Widgets – vor dem Vergleich entfernen!
       const normTeam = (s) => (s || "").toLowerCase().replace(/\(h\)/g, "").replace(/[^a-z0-9äöü]/g, "");
-      function loadTickerIndex() {
-        if (tickerIndex !== null) return;
-        tickerIndex = []; // sofort als "in Arbeit" markieren (kein Doppel-Laden)
-        fetch(TICKERS_URL, { headers: { Accept: "application/json" } })
+      let tickerIndexLaden = false;
+      function parseTickerIndex(data) {
+        const idx = [];
+        if (data && data.matchDays) {
+          data.matchDays.forEach((md) => (md.matches || []).forEach((m) => {
+            // st = gestartet, fi = beendet: Live-Flags aus den matchStates
+            // (seit 29.10. im Index). Aeltere Indizes ohne diese Felder
+            // zeigen einfach keinen LIVE-Button.
+            idx.push({ series: m.matchSeries, t1: normTeam(m.teamDescription1), t2: normTeam(m.teamDescription2), t1r: m.teamDescription1, t2r: m.teamDescription2, date: m.date, id: m.id, st: m.st === 1, fi: m.fi === 1 });
+          }));
+        }
+        tickerIndex = idx;
+        renderHeuteRow();
+        renderLiveBar();
+      }
+      function refreshTickerIndex() {
+        if (tickerIndexLaden) return;
+        tickerIndexLaden = true;
+        // Cache-Buster-Parameter: der Service Worker bedient same-origin-
+        // GETs sonst aus seinem Cache (stale-while-revalidate) - so geht
+        // der 10-Minuten-Abruf immer frisch ins Netz.
+        fetch(TICKERS_URL + "?t=" + Date.now(), { headers: { Accept: "application/json" } })
           .then((r) => (r.ok ? r.json() : null))
-          .then((data) => {
-            const idx = [];
-            if (data && data.matchDays) {
-              data.matchDays.forEach((md) => (md.matches || []).forEach((m) => {
-                idx.push({ series: m.matchSeries, t1: normTeam(m.teamDescription1), t2: normTeam(m.teamDescription2), t1r: m.teamDescription1, t2r: m.teamDescription2, date: m.date, id: m.id });
-              }));
-            }
-            tickerIndex = idx;
-            renderHeuteRow();
-          })
-          .catch(() => { tickerIndex = []; });
+          .then((data) => { if (data) parseTickerIndex(data); })
+          .catch(() => { /* Netz weg: alter Stand bleibt, naechster Versuch in 10 Min */ })
+          .finally(() => { tickerIndexLaden = false; });
       }
       function tickerLinkFor(series, nameA, nameB, ddmm) {
         if (!tickerIndex || !tickerIndex.length) return null;
@@ -913,7 +991,8 @@
         }
         return hits[0] ? "https://bvv.sams-ticker.de/detail/" + hits[0].id : null;
       }
-      setTimeout(loadTickerIndex, 2500); // nach App-Start im Hintergrund nachladen
+      setTimeout(refreshTickerIndex, 2500); // nach App-Start im Hintergrund nachladen
+      setInterval(refreshTickerIndex, 10 * 60 * 1000); // im 10-Min-Takt wie das HA-Update
 
       // ---------------- Spielplan-Zeilen klickbar machen ----------------
       function linkifySchedules() {
