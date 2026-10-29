@@ -97,10 +97,15 @@ jobs:
                   # st=1 gestartet, fi=1 beendet. App: live = st==1 und
                   # fi!=1 und Spiel ist heute (Berlin) - schliesst
                   # wochenlang offene Ticker (Amper-Fall) aus.
+                  # zusaetzlich Satzpunkte (sp1/sp2) fuer beendete
+                  # Spiele in der "ASV-Spiele heute"-Liste.
                   st = states.get(m["id"])
                   if st:
                       item["st"] = 1 if st.get("started") else 0
                       item["fi"] = 1 if st.get("finished") else 0
+                      sp = st.get("setPoints") or {}
+                      if sp.get("team1") is not None: item["sp1"] = sp["team1"]
+                      if sp.get("team2") is not None: item["sp2"] = sp["team2"]
                   ms.append(item)
                   if "ASV Dachau" in m["teamDescription1"] or "ASV Dachau" in m["teamDescription2"]:
                       entry = asv_series.setdefault(m["matchSeries"], {

@@ -32,6 +32,36 @@
         border: 1px solid #d1d5db; background: #fff; border-radius: 999px;
         padding: .4rem .9rem; font-size: .8rem; cursor: pointer;
       }
+      /* Knopf "Alle ASV-Spiele heute" (links neben Ohne-ASV-Filter),
+         dunkelblau als Akzent, gleiche Form wie .nofilterbtn */
+      .asvheutebtn {
+        border: 1px solid #1e3a8a; background: #1e3a8a; color: #fff;
+        border-radius: 999px; padding: .4rem .9rem; font-size: .8rem;
+        cursor: pointer; font-weight: 600;
+      }
+      /* Aufklappliste: eine Karte pro ASV-Spiel heute */
+      .asvheute { display: flex; flex-direction: column; gap: .4rem; margin: 0 0 .55rem; }
+      .asvcard {
+        display: flex; align-items: center; gap: .45rem; flex-wrap: wrap;
+        border: 1px solid #d1d5db; background: #fff; border-radius: 10px;
+        padding: .45rem .65rem; font-size: .78rem; cursor: pointer; white-space: nowrap;
+      }
+      .asvcard .klasse { font-weight: 700; color: #1e3a8a; font-size: .72rem; }
+      .asvcard .hc-zeit { font-weight: 700; color: #6b7280; font-size: .72rem; }
+      .asvcard b { font-weight: 600; color: #374151; }
+      .asvcard b.asv { color: #1e3a8a; }
+      /* geplant: nicht klickbar (noch keine Detail-URL) */
+      .asvcard.inaktiv { cursor: default; }
+      /* LIVE (Ticker angelegt): rot, pulsierend, klickbar */
+      .asvcard.live { border-color: #dc2626; background: #fef2f2; color: #991b1b; }
+      .asvcard.live .hc-zeit { color: #b91c1c; }
+      .asvcard.live b { color: #b91c1c; }
+      .asvcard.live b.asv { color: #1e3a8a; }
+      /* beendet: grau mit Ergebnis, nicht mehr klickbar */
+      .asvcard.done { border-color: #e5e7eb; background: #f9fafb; color: #6b7280; cursor: default; }
+      .asvcard.done b { color: #374151; }
+      .asvcard.done b.asv { color: #1e3a8a; }
+      .asvcard .erg { font-weight: 700; color: #111827; font-size: .78rem; }
       /* Pin-Hinweisleiste: nur sichtbar, wenn ein Pin gesetzt ist */
       .pinbar {
         display: none; align-items: center; justify-content: space-between; gap: .5rem;
@@ -213,6 +243,7 @@
           <!-- Stufe 3: konkretes Team / Wettbewerb -->
           <div class="filterrow" id="entryRow"></div>
           <div class="menufoot">
+            <button class="asvheutebtn" id="asvHeuteBtn" title="Alle ASV-Spiele heute auf einen Blick">🔥 ASV-Spiele heute</button>
             <button class="nofilterbtn" id="noFilterBtn" title="Nur Ticker mit allen BVV-Spielen">🌐 Ohne ASV-Filter</button>
           </div>
           <button class="closebtn" id="menuCloseBtn">✕ Menü schließen</button>
@@ -225,6 +256,10 @@
 
     <!-- Heute-Zeile: Spiele des gewaehlten Teams, die heute stattfinden -->
     <div id="heuteRow" style="display:none"></div>
+
+    <!-- ASV-Spiele heute: Aufklappliste ALLER ASV-Spiele des Tages
+         (unabhaengig vom gewaehlten Filter), Knopf im Menü -->
+    <div id="asvHeute" style="display:none"></div>
 
     <div class="teamview" id="teamview"></div>
 
@@ -589,6 +624,13 @@
         menuOpen = false;
         renderAll();
       };
+      // ASV-Spiele heute: Liste auf-/zuklappen, Menü schliessen
+      document.getElementById("asvHeuteBtn").onclick = (ev) => {
+        ev.stopPropagation();
+        asvHeuteOpen = !asvHeuteOpen;
+        menuOpen = false;
+        renderAll();
+      };
       noFilterView._reload = () => {
         nfFrame.src = "about:blank";
         setTimeout(() => { nfFrame.src = nfTargetSrc(); }, 50);
@@ -874,6 +916,89 @@
         heuteRow.style.display = "block";
       }
 
+      // ---------------- ASV-Spiele heute (Aufklappliste) ----------------
+      // Der Knopf "🔥 ASV-Spiele heute" klappt unter der Tab-Leiste
+      // eine Liste ALLER ASV-Spiele des Tages auf - unabhaengig vom
+      // gewaehlten Filter. Jede Karte zeigt die Spielklasse + Kategorie
+      // aus der App-Konfiguration (z. B. "Herren 4", "U16") und:
+      //  - geplant: weiss mit Uhrzeit, nicht klickbar (keine URL)
+      //  - LIVE (Ticker angelegt, fi!=1): rot, pulsierend - Klick
+      //    springt zum Mannschaftsfilter und pinnt das Spiel an
+      //  - beendet (fi=1): grau mit Satz-Ergebnis (sp1:sp2)
+      const asvHeuteRow = document.getElementById("asvHeute");
+      let asvHeuteOpen = false;
+      // Passenden CONFIG-Eintrag zum Spiel suchen (fuer Klasse und
+      // Filterwechsel): Wettbewerb-UUID muss passen; gibt es mehrere
+      // Eintraege in derselben Liga (zwei ASV-Teams), den zur Paarung
+      // passenden nehmen.
+      function configForMatch(m) {
+        const treffer = CONFIG.filter((e) => e.wettbewerb === m.series);
+        if (!treffer.length) return null;
+        const asvName = (m.t1r && m.t1r.includes("ASV Dachau")) ? m.t1r : m.t2r;
+        return treffer.find((e) => asvName && asvName.includes(e.team)) || treffer[0];
+      }
+      function renderAsvHeuteRow() {
+        asvHeuteRow.innerHTML = "";
+        asvHeuteRow.style.display = "none";
+        if (!asvHeuteOpen) return;
+        const wrap = document.createElement("div");
+        wrap.className = "asvheute";
+        if (!tickerIndex || !tickerIndex.length) {
+          const warten = document.createElement("div");
+          warten.className = "asvcard inaktiv";
+          warten.textContent = "⏳ Spiele werden geladen …";
+          wrap.appendChild(warten);
+        } else {
+          const heute = berlinTag(Date.now());
+          const zeitFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
+          const spiele = tickerIndex
+            .filter((m) => berlinTag(m.date) === heute &&
+              ((m.t1r && m.t1r.includes("ASV Dachau")) || (m.t2r && m.t2r.includes("ASV Dachau"))))
+            .sort((a, b) => a.date - b.date);
+          if (!spiele.length) {
+            const leer = document.createElement("div");
+            leer.className = "asvcard inaktiv";
+            leer.textContent = "😄 Heute spielen keine ASV-Mannschaften";
+            wrap.appendChild(leer);
+          }
+          spiele.forEach((m) => {
+            const t = configForMatch(m);
+            const klasse = t ? t.grp : "ASV";
+            const live = !!(m.an && !m.fi);
+            const fertig = !!m.fi;
+            const zeit = zeitFmt.format(new Date(m.date));
+            const card = document.createElement("button");
+            card.className = "asvcard" + (live ? " live" : "") + (fertig ? " done" : "") + (!live && !fertig ? " inaktiv" : "");
+            const zeitHtml = live
+              ? '<span class="livedot"></span><span class="hc-zeit">LIVE</span>'
+              : '<span class="hc-zeit">📅 ' + (zeit === "00:00" ? "–" : zeit) + '</span>';
+            const ergHtml = fertig
+              ? ((m.sp1 !== undefined && m.sp2 !== undefined) ? '<span class="erg">' + m.sp1 + ":" + m.sp2 + '</span>' : "") + '<span class="hc-zeit">✅ fertig</span>'
+              : "";
+            const paarung =
+              '<span><b' + (m.t1r && m.t1r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t1r) + '</b> – <b' + (m.t2r && m.t2r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t2r) + '</b></span>';
+            card.innerHTML = '<span class="klasse">' + escHtml(klasse) + '</span>' + zeitHtml + paarung + ergHtml;
+            if (live && t) {
+              card.title = "Zum Live-Ticker: Mannschaftsfilter wechseln + Spiel anpinnen";
+              card.onclick = () => {
+                state.noFilter = false;
+                state.cat = t.cat; state.grp = t.grp; state.entry = t.idx;
+                rememberEntry(t.cat, t.grp, t.idx);
+                state.tab = "ticker";
+                saveState();
+                renderAll();
+                if (t.el && t.el._pinTo) t.el._pinTo("https://bvv.sams-ticker.de/detail/" + m.id);
+              };
+            } else {
+              card.title = fertig ? "Beendet" : "Klickbar, sobald der Ticker zum Spiel angelegt ist";
+            }
+            wrap.appendChild(card);
+          });
+        }
+        asvHeuteRow.appendChild(wrap);
+        asvHeuteRow.style.display = "block";
+      }
+
       function renderAll() {
         // Gespeicherte Auswahl validieren: existiert der Eintrag noch?
         if (state.entry !== null && !CONFIG[state.entry]) { state.entry = null; state.grp = null; state.cat = null; menuOpen = true; }
@@ -903,6 +1028,7 @@
         renderEntryRow();
         renderTabRow();
         renderHeuteRow();
+        renderAsvHeuteRow();
         showEntry();
         renderPlaceholder();
         // 📌-Knopf zeigt an, ob die aktive Ansicht einen Pin hat
@@ -934,11 +1060,12 @@
             // Karte wird rot/klickbar sobald ANGELEGT (Nutzer-Regel),
             // nach fi=1 wieder normal. Aeltere Indizes ohne st/fi:
             // keine LIVE-Karte.
-            idx.push({ series: m.matchSeries, t1: normTeam(m.teamDescription1), t2: normTeam(m.teamDescription2), t1r: m.teamDescription1, t2r: m.teamDescription2, date: m.date, id: m.id, an: (m.st !== undefined && m.st !== null), st: m.st === 1, fi: m.fi === 1 });
+            idx.push({ series: m.matchSeries, t1: normTeam(m.teamDescription1), t2: normTeam(m.teamDescription2), t1r: m.teamDescription1, t2r: m.teamDescription2, date: m.date, id: m.id, an: (m.st !== undefined && m.st !== null), st: m.st === 1, fi: m.fi === 1, sp1: m.sp1, sp2: m.sp2 });
           }));
         }
         tickerIndex = idx;
         renderHeuteRow();
+        renderAsvHeuteRow();
       }
       function refreshTickerIndex() {
         if (tickerIndexLaden) return;
@@ -976,82 +1103,3 @@
         return hits[0] ? "https://bvv.sams-ticker.de/detail/" + hits[0].id : null;
       }
       setTimeout(refreshTickerIndex, 2500); // nach App-Start im Hintergrund nachladen
-      setInterval(refreshTickerIndex, 10 * 60 * 1000); // im 10-Min-Takt wie das HA-Update
-
-      // ---------------- Spielplan-Zeilen klickbar machen ----------------
-      function linkifySchedules() {
-        document.querySelectorAll(".vapi tr.spiel").forEach((row) => {
-          const entryEl = row.closest(".entry");
-          const id = entryEl ? entryEl.id.replace("entry-", "") : null;
-          const t = CONFIG[Number(id)];
-          const sid = row.getAttribute("data-vapi-spielid");
-          if (!t || !sid) return;
-          const datumEl = row.querySelector(".datum");
-          const teamA = row.querySelector(".teama");
-          const teamB = row.querySelector(".teamb");
-          if (!datumEl || !teamA || !teamB) return;
-          // 1. Live-Ticker-Link suchen (sobald der Index geladen ist)
-          if (!row.dataset.tickerurl && tickerIndex && tickerIndex.length) {
-            const link = tickerLinkFor(t.wettbewerb, teamA.textContent, teamB.textContent, datumEl.textContent);
-            if (link) row.dataset.tickerurl = link;
-          }
-          // 2. Klick-Verhalten: Ticker-Link hat Vorrang, sonst BVV-Spieldetail (Jugend)
-          if (row.dataset.tickerurl) {
-            if (row.dataset.linkified === "ticker") return;
-            row.dataset.linkified = "ticker";
-            row.classList.add("clickable");
-            row.title = "📡 Live-Ticker dieses Spiels im Ticker-Reiter laden";
-            row.addEventListener("click", () => {
-              state.tab = "ticker";
-              saveState();
-              renderAll();
-              if (t.el && t.el._pinTo) t.el._pinTo(row.dataset.tickerurl);
-            });
-          } else if (!row.dataset.linkified) {
-            const base = detailBaseOf(t);
-            if (base) {
-              row.dataset.linkified = "bvv";
-              row.classList.add("clickable");
-              row.title = "Spieldetails & Live-Ticker öffnen";
-              row.addEventListener("click", () => window.open(base + sid, "_blank", "noopener"));
-            }
-          }
-        });
-      }
-      setInterval(linkifySchedules, 1500);
-
-      // ---------------- Fallback, falls Einbetten gesperrt ----------------
-      setTimeout(() => {
-        document.querySelectorAll(".ticker-frame").forEach((f) => {
-          try { if (f.contentWindow === null) f.parentElement.querySelector(".fallback").style.display = "block"; }
-          catch (e) { f.parentElement.querySelector(".fallback").style.display = "block"; }
-        });
-      }, 5000);
-    </script>
-
-    <!-- BVV-Schnittstelle: füllt alle .vapi-Container automatisch -->
-    <script src="https://api.volleyball-bayern.de/jsi/volley.js.php?key=ff8671c3-ef58-433d-93c5-0f1e580c4347"></script>
-    <!-- PWA: Service Worker registrieren (Offline-Start, Installierbarkeit) -->
-    <script>
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("sw.js").catch(function () { /* offline-first optional */ });
-      }
-    </script>
-    <!-- Versionsanzeige: Datum des letzten Commits von GitHub abfragen -->
-    <script>
-      (function () {
-        fetch("https://api.github.com/repos/luigitare/asv-dachau-ticker/commits?path=index.html&per_page=1")
-          .then(function (r) { return r.json(); })
-          .then(function (commits) {
-            if (!commits || !commits[0]) return;
-            var d = new Date(commits[0].commit.committer.date);
-            var tag = d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-            var zeit = d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-            document.getElementById("stand").textContent = "Stand: " + tag + ", " + zeit + " Uhr";
-          })
-          .catch(function () { /* offline: Fallback-Datum bleibt stehen */ });
-      })();
-    </script>
-  </body>
-</html>
-
