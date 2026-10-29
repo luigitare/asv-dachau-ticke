@@ -47,6 +47,30 @@ jobs:
           echo "ok=$ok" >> "$GITHUB_OUTPUT"
           if [ $ok -eq 0 ]; then
             echo "::warning::Ticker-Backend blockiert/unbrauchbar - Update uebersprungen, kein Commit. Der naechste Lauf versucht erneut."
+            echo ""
+            echo "==================== DIAGNOSE START ===================="
+            echo "Runner-Umgebung:"
+            echo "  curl: $(curl --version | head -1)"
+            echo "  Egress-IP: $(curl -s -m 15 https://api.ipify.org || echo 'unbekannt')"
+            echo ""
+            echo "--- Kontroll-Abruf 1: bvv.sams-ticker.de Startseite (erwartet 200):"
+            curl -sS -m 30 -o /dev/null -w "  HTTP %{http_code}, remote_ip=%{remote_ip}\n" https://bvv.sams-ticker.de/ || echo "  fehlgeschlagen"
+            echo ""
+            echo "--- Kontroll-Abruf 2: Backend OHNE Origin-Header (erwartet 403):"
+            curl -sS --compressed -m 60 -o /dev/null -w "  HTTP %{http_code}\n" https://backend.sams-ticker.de/live/indoor/tickers/bvv || echo "  fehlgeschlagen"
+            echo ""
+            echo "--- Kontroll-Abruf 3: Backend MIT bvv-Origin (der eigentliche Fall):"
+            curl -sS --compressed -m 60 -D /tmp/diag_hdr.txt \
+              -H "Origin: https://bvv.sams-ticker.de" \
+              -H "Accept: application/json" \
+              -H "User-Agent: Mozilla/5.0" \
+              https://backend.sams-ticker.de/live/indoor/tickers/bvv -o /tmp/diag_body.txt || echo "  curl-Fehler (rc=$?)"
+            echo "  Response-Header:"
+            sed 's/^/    /' /tmp/diag_hdr.txt || true
+            echo "  Body (erste 2500 Zeichen):"
+            head -c 2500 /tmp/diag_body.txt | sed 's/^/    /' || true
+            echo ""
+            echo "==================== DIAGNOSE ENDE ===================="
           else
             echo "Download erfolgreich."
           fi
