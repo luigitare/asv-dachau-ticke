@@ -815,10 +815,10 @@
       //  - laeuft es (st=1, fi!=1, heute): dieselbe Karte wird rot mit
       //    pulsierendem Punkt, Badge "LIVE" – die Karte IST der Button
       //  - angepinnt: roter Ring um die rote Karte
-      // Klickbar ist die Karte, sobald das Backend einen Ticker zum
-      // Spiel angelegt hat (an=true, i.d.R. schon beim Aufwaermen) –
-      // vorher gibt es keine Detail-URL, ein Pin waere ins Leere.
-      // Rot/"LIVE" wird sie erst beim echten Start (st=1, fi!=1).
+      // Klickbar ist die Karte NUR im LIVE-Zustand (st=1, fi!=1) –
+      // bewusst kein Zwischenzustand (Nutzer-Entscheidung 29.10.):
+      // sonst waere die Karte klickbar, obwohl der Index das laufende
+      // Spiel noch nicht gemeldet hat (10-Min-Takt).
       function renderHeuteRow() {
         heuteRow.innerHTML = "";
         heuteRow.style.display = "none";
@@ -837,18 +837,19 @@
         spiele.forEach((m) => {
           const url = "https://bvv.sams-ticker.de/detail/" + m.id;
           const pinAktiv = pinOf(t.idx) === url;
-          // angelegt = Backend hat schon einen Ticker-Eintrag
-          // (matchStates), DAS passiert schon beim Aufwaermen, bevor
-          // das Spiel startet - die Detail-URL existiert also frueher.
-          // Live = gestartet (st=1), nicht beendet (fi!=1).
+          // Genau ZWEI Zustaende (Nutzer-Entscheidung 29.10. abends):
+          //  1. nicht klickbar (weiss, Badge "Heute · HH:MM")
+          //  2. LIVE (rot, pulsierend, klickbar): st=1, fi!=1, heute.
+          // Bewusst KEIN Zwischenzustand "angelegt, klickbar, aber
+          // weiss": laeuft das Spiel schon und der 10-Min-Index ist
+          // noch nicht aktualisiert, waere die Karte klickbar ohne
+          // LIVE-Optik - genau das soll es nicht geben.
           // "Heute"-Beschraenkung bewusst: Backend haelt Ticker offen
           // eingestellter Spiele wochenlang auf started (Amper-Fall).
-          const angelegt = m.an === true;
           const live = !!(m.st && !m.fi);
-          const klickbar = live || angelegt;
           const zeit = zeitFmt.format(new Date(m.date));
           const card = document.createElement("button");
-          card.className = "heutecard" + (live ? " live" : "") + (pinAktiv ? " pinned" : "") + (!klickbar ? " inaktiv" : "");
+          card.className = "heutecard" + (live ? " live" : "") + (pinAktiv ? " pinned" : "") + (!live ? " inaktiv" : "");
           // Badge: LIVE mit pulsierendem Punkt, sonst Datum + Uhrzeit
           const badge = live
             ? '<span class="livedot"></span><span class="hc-zeit">LIVE</span>'
@@ -856,10 +857,8 @@
           const paarung =
             '<span><b' + (m.t1r && m.t1r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t1r) + '</b> – <b' + (m.t2r && m.t2r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t2r) + '</b> 📌</span>';
           card.innerHTML = badge + paarung;
-          if (klickbar) {
-            card.title = live
-              ? "Dieses Spiel läuft gerade – Live-Ticker öffnen (anpinnen)"
-              : "Live-Ticker dieses Spiels laden";
+          if (live) {
+            card.title = "Dieses Spiel läuft gerade – Live-Ticker öffnen (anpinnen)";
             card.onclick = () => {
               state.tab = "ticker";
               saveState();
@@ -867,7 +866,7 @@
               if (t.el && t.el._pinTo) t.el._pinTo(url);
             };
           } else {
-            card.title = "Klickbar, sobald der Ticker zum Spiel angelegt wird";
+            card.title = "Klickbar, sobald das Spiel im Ticker startet";
           }
           wrap.appendChild(card);
         });
@@ -929,13 +928,10 @@
         const idx = [];
         if (data && data.matchDays) {
           data.matchDays.forEach((md) => (md.matches || []).forEach((m) => {
-            // st = gestartet, fi = beendet, an = angelegt (matchStates-
-            // Eintrag existiert, i.d.R. schon beim Aufwaermen):
-            // Live-Flags aus den matchStates (seit 29.10. im Index).
-            // an=true heisst: Detail-URL existiert -> Karte klickbar.
-            // Aeltere Indizes ohne diese Felder zeigen keine
-            // klickbare LIVE-Karte.
-            idx.push({ series: m.matchSeries, t1: normTeam(m.teamDescription1), t2: normTeam(m.teamDescription2), t1r: m.teamDescription1, t2r: m.teamDescription2, date: m.date, id: m.id, an: (m.st !== undefined && m.st !== null), st: m.st === 1, fi: m.fi === 1 });
+            // st = gestartet, fi = beendet: Live-Flags aus den
+            // matchStates (seit 29.10. im Index). Aeltere Indizes
+            // ohne diese Felder zeigen keine klickbare LIVE-Karte.
+            idx.push({ series: m.matchSeries, t1: normTeam(m.teamDescription1), t2: normTeam(m.teamDescription2), t1r: m.teamDescription1, t2r: m.teamDescription2, date: m.date, id: m.id, st: m.st === 1, fi: m.fi === 1 });
           }));
         }
         tickerIndex = idx;
