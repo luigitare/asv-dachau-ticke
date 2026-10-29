@@ -19,13 +19,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Ticker-Index und ASV-Wettbewerbe erzeugen
+      - name: Ticker-Backend laden (mit Validierung)
         run: |
-          curl -sS --compressed -m 150 --retry 2 --retry-delay 30 \
+          set +e
+          curl -sS --compressed -f -m 150 --retry 3 --retry-all-errors --retry-delay 20 \
             -H "Origin: https://bvv.sams-ticker.de" \
             -H "Accept: application/json" \
             -H "User-Agent: Mozilla/5.0" \
             https://backend.sams-ticker.de/live/indoor/tickers/bvv -o /tmp/tickers.json
+          rc=$?
+          ok=1
+          if [ $rc -ne 0 ]; then
+            echo "::warning::Ticker-Backend nicht erreichbar (curl rc=$rc, vermutlich 403/Drosselung). Kein Update, kein Commit."
+            ok=0
+          elif ! python3 -c "import json;json.load(open('/tmp/tickers.json'))"; then
+            echo "::warning::Antwort ist kein gueltiges JSON. Kein Update, kein Commit."
+            ok=0
+          elif ! python3 -c "import json;d=json.load(open('/tmp/tickers.json'));n=sum(len(md['matches']) for md in d['matchDays']);exit(0 if n>=200 else 1)"; then
+            n=$(python3 -c "import json;d=json.load(open('/tmp/tickers.json'));print(sum(len(md['matches']) for md in d['matchDays']))")
+            echo "::warning::Nur $n Matches (verdachtig wenig, erwartbar >1000) – vermutlich unvollstaendiger Download. Kein Update, kein Commit."
+            ok=0
+          fi
+          echo "ok=$ok" >> "$GITHUB_OUTPUT"
+          [ $ok -eq 1 ]
+
+      - name: Ticker-Index und ASV-Wettbewerbe erzeugen
+        if: steps.load.outputs.ok == 1
+        run: |
           python3 - <<'PYEOF'
           import json
           data = json.load(open('/tmp/tickers.json'))
@@ -57,6 +77,7 @@ jobs:
           PYEOF
 
       - name: Committen, falls geändert
+        if: steps.load.outputs.ok == 1
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
