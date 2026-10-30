@@ -1318,11 +1318,18 @@
           if (liveA !== liveB) return liveA - liveB;
           return a[1].name.localeCompare(b[1].name, "de", { numeric: true });
         });
-        sortiert.slice(0, 50).forEach(([, tw]) => {
+        sortiert.slice(0, 50).forEach(([k, tw]) => {
           const name = tw.name;
           const ms = tw.ms;
           const live = ms.some((m) => m.an && !m.fi);
-          const t = configForMatch(ms[0]); // ASV? -> Klasse-Label (grp)
+          // ASV-Team? Die KARTEN-Team-UUID gegen CONFIG pruefen - NICHT
+          // configForMatch(ms[0]): Ein Fremd-Team in einer ASV-Liga spielt
+          // auch GEGEN ASV, sonst wuerde der Klick auf z. B. "Lohhof" aufs
+          // ASV-Team derselben Liga springen (31.10.). Namens-Fallback
+          // nur fuer echte ASV-Namen (UUID fehlt, z. B. Platzhalter).
+          const tid = (typeof k === "string" && k.indexOf("n|") !== 0) ? k : "";
+          const t = (tid && CONFIG.find((e) => e.teamId === tid))
+            || (name.indexOf("ASV Dachau") !== -1 ? configForMatch(ms[0]) : null);
           const kt = t ? null : teamKontext(name, ms);
           // Jugend m/w anhaengen, damit gleichnamige Teams unterscheidbar
           // bleiben ("U16 m · ASV Dachau II" vs "U16 w · ASV Dachau II")
