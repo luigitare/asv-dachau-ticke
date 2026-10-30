@@ -219,6 +219,43 @@
         70% { box-shadow: 0 0 0 7px rgba(220,38,38,0); }
         100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
       }
+
+      /* ---------------- Intro-Overlay beim allerersten Start ----------------
+         Erscheint genau 1x (localStorage-Flag asvIntroSeen), danach nur
+         noch ueber den Knopf "Kurze Einfuehrung" im Menue. */
+      .introoverlay {
+        position: fixed; inset: 0; z-index: 500;
+        background: rgba(17, 24, 39, .55);
+        display: none; align-items: center; justify-content: center;
+        padding: 1rem;
+      }
+      .introcard {
+        background: #fff; border-radius: 14px; max-width: 330px; width: 100%;
+        padding: 1.1rem 1.1rem .9rem; text-align: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,.3);
+        max-height: 100%; overflow-y: auto;
+      }
+      .introcard .intrologo { height: 56px; width: auto; margin: 0 auto .5rem; display: block; }
+      .introcard h2 { font-size: 1.15rem; margin: 0 0 .2rem; color: #1e3a8a; }
+      .introcard .unter { font-size: .78rem; color: #6b7280; margin: 0 0 .8rem; }
+      .intropunkt {
+        display: flex; align-items: flex-start; gap: .55rem; text-align: left;
+        padding: .5rem .55rem; border: 1px solid #e5e7eb; border-radius: 10px;
+        margin-bottom: .45rem; background: #f9fafb;
+      }
+      .intropunkt .ic { font-size: 1.05rem; line-height: 1.2; flex-shrink: 0; }
+      .intropunkt b { display: block; font-size: .82rem; color: #111827; }
+      .intropunkt span { font-size: .74rem; color: #6b7280; }
+      .introfenster {
+        font-size: .72rem; color: #6b7280; background: #eff6ff; border: 1px dashed #93c5fd;
+        border-radius: 8px; padding: .4rem .5rem; margin: .2rem 0 .8rem; text-align: left;
+      }
+      .introlos {
+        display: block; width: 100%; border: 0; border-radius: 10px;
+        background: #1e3a8a; color: #fff; font-size: .95rem; font-weight: 700;
+        padding: .65rem 0; cursor: pointer;
+      }
+      .introlos:active { background: #1d4ed8; }
     </style>
   </head>
   <body>
@@ -249,6 +286,7 @@
           <!-- Team-Suche (Modus-Chip „🔍 Suche“): Eingabefeld +
                Mannschafts-Treffer stehen IM MENÜ -->
           <div id="sucheRow" style="display:none"></div>
+          <button class="closebtn" id="introBtn">ℹ️ Kurze Einführung</button>
           <button class="closebtn" id="menuCloseBtn">✕ Menü schließen</button>
         </div>
       </div>
@@ -282,6 +320,34 @@
           Der Ticker lässt sich hier nicht direkt einbetten –
           <a href="https://bvv.sams-ticker.de/" target="_blank" rel="noopener">hier in einem neuen Tab öffnen ↗</a>
         </p>
+      </div>
+    </div>
+
+    <!-- Intro beim allerersten Start: genau 1x (localStorage-Flag asvIntroSeen),
+         spaeter ueber "Kurze Einfuehrung" im Menue erneut aufrufbar -->
+    <div class="introoverlay" id="introOverlay">
+      <div class="introcard">
+        <img class="intrologo" src="logo_c.svg" alt="ASV Dachau Volleys" />
+        <h2>Willkommen beim ASV Ticker!</h2>
+        <p class="unter">Spielpläne, Tabellen &amp; Live-Ticker des ASV Dachau</p>
+        <div class="intropunkt">
+          <span class="ic">🏐</span>
+          <div><b>„ASV Team"</b><span>Eigene Mannschaft wählen: Live-Ticker, Spielplan, Tabelle</span></div>
+        </div>
+        <div class="intropunkt">
+          <span class="ic">🔥</span>
+          <div><b>„alle ASV Spiele heute"</b><span>Alle Dachau-Spiele des Tages auf einen Blick – im Ticker aufrufbar</span></div>
+        </div>
+        <div class="intropunkt">
+          <span class="ic">🔍</span>
+          <div><b>„Suche"</b><span>Jede BVV-Mannschaft finden und deren Ticker anpinnen</span></div>
+        </div>
+        <div class="intropunkt">
+          <span class="ic">🌐</span>
+          <div><b>„ohne Filter"</b><span>Der komplette BVV-Ticker</span></div>
+        </div>
+        <div class="introfenster">ℹ️ Spiele werden ca. 7 Tage im Voraus und 7 Tage zurück angezeigt.</div>
+        <button class="introlos" id="introLosBtn">Los geht's!</button>
       </div>
     </div>
 
@@ -598,6 +664,25 @@
         if (state.search) state.search = false;
         renderAll();
       };
+
+      // ---------------- Intro beim allerersten Start ----------------
+      // Erscheint genau 1x (localStorage-Flag), danach nie wieder von
+      // selbst – nur noch ueber "Kurze Einfuehrung" im Menue.
+      const introOverlay = document.getElementById("introOverlay");
+      const INTRO_KEY = "asvIntroSeen";
+      function zeigeIntro() { introOverlay.style.display = "flex"; }
+      function schliesseIntro() {
+        introOverlay.style.display = "none";
+        try { localStorage.setItem(INTRO_KEY, "1"); } catch (e) { /* Storage gesperrt: Intro kommt beim naechsten Start wieder, harmlos */ }
+      }
+      document.getElementById("introBtn").onclick = () => {
+        menuOpen = false;
+        if (state.search) state.search = false;
+        renderAll();
+        zeigeIntro();
+      };
+      document.getElementById("introLosBtn").onclick = schliesseIntro;
+      try { if (!localStorage.getItem(INTRO_KEY)) zeigeIntro(); } catch (e) { zeigeIntro(); }
 
       // Ohne ASV-Filter: nur der BVV-Ticker mit allen Spielen
       const noFilterView = document.getElementById("nofilterview");
@@ -1552,4 +1637,5 @@
     </script>
   </body>
 </html>
+
 
