@@ -754,7 +754,7 @@
           menuOpen = false;
           renderAll();
         }));
-        modeRow.appendChild(chip("🔍 Suche", !!state.search, () => {
+        modeRow.appendChild(chip("🔍 Suche", !!(state.search || state.fremd), () => {
           state.noFilter = false;
           state.asvHeute = false;
           state.search = true;
@@ -1057,56 +1057,70 @@
       function berlinTag(ts) {
         return new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(ts));
       }
-      // Zeigt HEUTE-Spiele des gewaehlten Wettbewerbs als EINE Karte.
-      // Die Karte traegt ihren Kontext selbst (kein graues Label mehr,
-      // keine separate Live-Leiste):
-      //  - vor dem Spiel: weiss, Badge "📅 Heute · HH:MM", Paarung, 📌
+      // Zeigt ALLE Spiele der gewaehlten Mannschaft aus dem Ticker-Index
+      // (Zeitfenster ca. ±7 Tage, Liga- UND Pokal-Spiele, da per teamId
+      // ueber alle Wettbewerbe gematcht wird), aufsteigend nach Datum
+      // (Nutzer-Wunsch 31.10.). Gilt fuer ASV-Teams UND fremde
+      // Mannschaften aus der Suche gleichermassen. Antippen pinnt das
+      // Spiel an: der Live-Ticker-Reiter laedt dann genau dieses Spiel.
+      // Die Karte traegt ihren Kontext selbst (kein graues Label mehr):
+      //  - geplant: weiss, Badge "📅 Heute/Datum · HH:MM", Paarung, 📌
       //  - ANGELEGT (Ticker existiert, fi!=1): dieselbe Karte wird rot mit
       //    pulsierendem Punkt, Badge "LIVE" – die Karte IST der Button
-      //  - angepinnt: roter Ring um die rote Karte
-      // Klickbar + rot ist die Karte, sobald das Backend den Ticker
-      // zum Spiel ANGELEGT hat (an-Flag, Detail-URL existiert) und das
-      // Spiel nicht beendet ist – NUR im LIVE-Zustand, kein
-      // Zwischenzustand (Nutzer-Regel 29.10.: geplant = unklickbar,
-      // angelegt = rot & klickbar).
+      //  - beendet (fi=1): grau mit Satz-Ergebnis, klickbar fuer die
+      //    Ticker-Vergangenheit
+      //  - angepinnt: roter Ring um die Karte
       function renderHeuteRow() {
         heuteRow.innerHTML = "";
         heuteRow.style.display = "none";
         if ((state.entry === null && !state.fremd) || state.noFilter || state.asvHeute || state.search) return;
         if (!tickerIndex || !tickerIndex.length) return;
-        const t = currentEntry();
-        if (!t || !t.wettbewerb) return;
-        const zeitFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
-        const heute = berlinTag(Date.now());
-        const spiele = tickerIndex
-          .filter((m) => m.series === t.wettbewerb && berlinTag(m.date) === heute)
-          .sort((a, b) => a.date - b.date);
+        const fr = state.fremd;
+        const t = currentEntry(); // fremd: gebautes DOM-Element, sonst CONFIG-Eintrag
+        if (!t) return;
+        // Team-Identitaet: teamId matcht Spiele ueber ALLE Wettbewerbe
+        // (Liga + Pokal); ohne teamId Fallback ueber den Teamnamen.
+        // (normTeam ist hier sicher nutzbar: tickerIndex ist geladen,
+        // das komplette Script ist also durchgelaufen – keine TDZ.)
+        const tid = fr ? (fr.teamId || "") : (t.teamId || "");
+        const nName = normTeam(fr ? fr.name : t.team);
+        const istTeam = (m) =>
+          (tid ? (m.t1i === tid || m.t2i === tid)
+               : (normTeam(m.t1r) === nName || normTeam(m.t2r) === nName));
+        const spiele = tickerIndex.filter(istTeam).sort((a, b) => a.date - b.date);
         if (!spiele.length) return;
+        const zeitFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
+        const tagDatumFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", weekday: "short", day: "2-digit", month: "2-digit" });
+        const heute = berlinTag(Date.now());
+        const pinKey = fr ? fremdPinKey(fr) : t.idx;
+        const pinZu = (url) => { if (fr) { if (t._pinTo) t._pinTo(url); } else if (t.el && t.el._pinTo) t.el._pinTo(url); };
         const wrap = document.createElement("div");
         wrap.className = "heutecards";
         spiele.forEach((m) => {
           const url = "https://bvv.sams-ticker.de/detail/" + m.id;
-          const pinAktiv = pinOf(t.idx) === url;
-          // Genau ZWEI Zustaende (Nutzer-Entscheidung 29.10. nachts):
-          //  1. nur geplant (weiss, nicht klickbar, Badge "Heute · HH:MM")
-          //  2. ANGELEGT (rot, pulsierend, klickbar, Badge "LIVE"):
-          //     das Backend hat einen Ticker-Eintrag angelegt, es gibt
-          //     also eine Detail-URL. DAS ist der Live-Zustand –
-          //     i.d.R. schon beim Aufwaermen, bevor der Ball fliegt.
-          // "Heute"-Beschraenkung bewusst: Backend haelt Ticker offen
-          // eingestellter Spiele wochenlang angelegt (Amper-Fall).
+          const pinAktiv = pinOf(pinKey) === url;
+          // Zustaende (Nutzer-Regel 29.10./30.10.): geplant = unklickbar,
+          // ANGELEGT = rot & klickbar (i.d.R. schon beim Aufwaermen),
+          // beendet = klickbar fuer die Ticker-Vergangenheit.
           const live = !!(m.an && !m.fi);
-          const fertig = !!m.fi; // beendet -> klickbar fuer Ticker-Vergangenheit
+          const fertig = !!m.fi;
+          const istHeute = berlinTag(m.date) === heute;
           const zeit = zeitFmt.format(new Date(m.date));
+          const tagDatum = tagDatumFmt.format(new Date(m.date)); // z. B. "Sa., 31.10."
           const ergFertig = (m.sp1 !== undefined && m.sp2 !== undefined) ? '<span class="erg">' + m.sp1 + ":" + m.sp2 + '</span>' : "";
           const card = document.createElement("button");
           card.className = "heutecard" + (live ? " live" : "") + (fertig ? " done" : "") + (pinAktiv ? " pinned" : "") + (!live && !fertig ? " inaktiv" : "");
-          // Badge: LIVE mit pulsierendem Punkt, sonst Datum + Uhrzeit
+          // Badge: LIVE mit pulsierendem Punkt; beendet mit Satz-Ergebnis
+          // + Datum (heutige Spiele sagen "heute"); geplant mit Datum +
+          // Uhrzeit – nicht-heutige zeigen den Wochentag, damit man
+          // Vergangenheit/Zukunft einordnen kann.
           const badge = live
             ? '<span class="livedot"></span><span class="hc-zeit">LIVE</span>'
             : fertig
-              ? ergFertig + '<span class="hc-zeit">✅ beendet · Ticker ansehen</span>'
-              : '<span class="hc-zeit">📅 Heute · ' + (zeit === "00:00" ? "–" : zeit) + '</span>';
+              ? ergFertig + '<span class="hc-zeit">✅ ' + (istHeute ? "heute" : tagDatum) + " · Ticker ansehen</span>"
+              : '<span class="hc-zeit">📅 ' + (istHeute
+                  ? "Heute · " + (zeit === "00:00" ? "–" : zeit)
+                  : tagDatum + (zeit === "00:00" ? "" : " · " + zeit)) + "</span>";
           const paarung =
             '<span><b' + (m.t1r && m.t1r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t1r) + '</b> – <b' + (m.t2r && m.t2r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t2r) + '</b> 📌</span>';
           card.innerHTML = badge + paarung;
@@ -1118,7 +1132,7 @@
               state.tab = "ticker";
               saveState();
               renderAll();
-              if (t.el && t.el._pinTo) t.el._pinTo(url);
+              pinZu(url);
             };
           } else {
             card.title = "Klickbar, sobald das Spiel im Ticker startet";
@@ -1422,7 +1436,7 @@
         tabRow.style.display = ((state.entry !== null || !!state.fremd) && !state.noFilter && !state.asvHeute && !state.search) ? "flex" : "none";
         // Modus-Zeile immer, Mannschafts-Zeilen nur im Team-Modus
         renderModeRow();
-        const teamMode = !state.noFilter && !state.asvHeute && !state.search;
+        const teamMode = !state.noFilter && !state.asvHeute && !state.search && !state.fremd;
         teamRowsLabel.style.display = teamMode ? "" : "none";
         catRow.style.display = teamMode ? "" : "none";
         grpRow.style.display = teamMode ? "" : "none";
