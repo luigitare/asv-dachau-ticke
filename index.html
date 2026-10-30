@@ -1027,10 +1027,17 @@
           const pane = t.querySelector("#e-fremd-" + (state.tab || "ticker"));
           if (pane) pane.classList.add("active");
           else t.querySelector("#e-fremd-ticker").classList.add("active");
-          const fr = t.querySelector(".ticker-frame");
+          const frEl = t.querySelector(".ticker-frame");
           const src = pinOf(fremdPinKey(state.fremd)) || (TICKER_BASE + state.fremd.series);
-          if (fr.src !== src && fr.src !== "about:blank") fr.src = src;
-          if (!fr.src) fr.src = src;
+          // Ohne Spiel im ±7-Tage-Fenster (und ohne Pin) KEIN Ticker-iframe
+          if (teamOhneSpiel(t, state.fremd) && !pinOf(fremdPinKey(state.fremd))) {
+            if (frEl.src !== "about:blank") frEl.src = "about:blank";
+            frEl.style.display = "none";
+          } else {
+            frEl.style.display = "";
+            if (frEl.src !== src && frEl.src !== "about:blank") frEl.src = src;
+            if (!frEl.src) frEl.src = src;
+          }
           t.querySelector(".fallback-link").href = src;
           return;
         }
@@ -1047,8 +1054,18 @@
         // oder Liga-Ansicht
         const f = t.el.querySelector(".ticker-frame");
         const src = targetSrc(t);
-        if (f.src !== src && f.src !== "about:blank") f.src = src;
-        if (!f.src) f.src = src;
+        // Nutzer-Wunsch 31.10.: Ohne Spiel im ±7-Tage-Fenster (Index
+        // geladen, kein Treffer) und ohne angepinntes Spiel erscheint
+        // KEIN Live-Ticker-iframe – die "keinspiel"-Zeile uebernimmt
+        // die Info ueber dem Tickerbereich.
+        if (teamOhneSpiel(t, null) && !pinOf(t.idx)) {
+          if (f.src !== "about:blank") f.src = "about:blank";
+          f.style.display = "none";
+        } else {
+          f.style.display = "";
+          if (f.src !== src && f.src !== "about:blank") f.src = src;
+          if (!f.src) f.src = src;
+        }
         // Fallback-Link aktuell halten
         t.el.querySelector(".fallback-link").href = src;
       }
@@ -1121,6 +1138,20 @@
       //  - beendet (fi=1): grau mit Satz-Ergebnis, klickbar fuer die
       //    Ticker-Vergangenheit
       //  - angepinnt: roter Ring um die Karte
+      // Hat die gewaehlte Mannschaft (ASV-CONFIG-Eintrag t ODER fremdes
+      // Team fr) KEIN Spiel im geladenen Ticker-Index (±7 Tage)?
+      // true nur, wenn der Index tatsaechlich geladen ist und keine
+      // Treffer vorliegen – waehrend des Ladens (null) oder bei
+      // fehlgeschlagenem Abruf ([]) bleibt alles beim alten Verhalten.
+      function teamOhneSpiel(t, fr) {
+        if (!tickerIndex || !tickerIndex.length) return false;
+        const tid = fr ? (fr.teamId || "") : (t.teamId || "");
+        const nName = normTeam(fr ? fr.name : t.team);
+        const gefunden = tickerIndex.some((m) =>
+          tid ? (m.t1i === tid || m.t2i === tid)
+              : (normTeam(m.t1r) === nName || normTeam(m.t2r) === nName));
+        return !gefunden;
+      }
       function renderHeuteRow() {
         heuteRow.innerHTML = "";
         heuteRow.style.display = "none";
@@ -1141,9 +1172,19 @@
         const spiele = tickerIndex.filter(istTeam).sort((a, b) => a.date - b.date);
         if (!spiele.length) {
           // Kein Spiel der gewaehlten Mannschaft im ±7-Tage-Fenster:
-          // kurze Info-Zeile ueber dem Ticker statt gar nichts (31.10.)
+          // Info-Zeile ueber dem Ticker – und der Live-Ticker (iframe)
+          // bleibt weg. Ausnahme: ein Spiel ist per URL angepinnt,
+          // dann bleibt der Ticker natuerlich sichtbar (31.10.).
+          const pk = fr ? fremdPinKey(fr) : t.idx;
+          const pinAktiv = !!pinOf(pk);
+          const frame = fr ? t.querySelector(".ticker-frame")
+                           : (t.el ? t.el.querySelector(".ticker-frame") : null);
           heuteRow.innerHTML = '<div class="keinspiel">ℹ️ Im Zeitraum ± 7 Tagen findet kein Spiel statt.</div>';
           heuteRow.style.display = "block";
+          if (frame && !pinAktiv) {
+            if (frame.src !== "about:blank") frame.src = "about:blank";
+            frame.style.display = "none";
+          }
           return;
         }
         const zeitFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
@@ -1200,6 +1241,9 @@
         });
         heuteRow.appendChild(wrap);
         heuteRow.style.display = "block";
+        // Falls der Ticker zuvor ausgeblendet war (z. B. Index-Update
+        // hat jetzt Spiele fuer das Team): Ansicht wiederherstellen.
+        showEntry();
       }
 
       // ---------------- ASV-Spiele heute (Aufklappliste) ----------------
