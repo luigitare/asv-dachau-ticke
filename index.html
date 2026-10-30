@@ -198,10 +198,20 @@
       }
       .heutecards { display: flex; gap: .4rem; overflow-x: auto; padding-bottom: .15rem; }
       .heutecard {
-        display: flex; align-items: center; gap: .45rem; flex-shrink: 0;
+        display: flex; flex-direction: column; align-items: stretch; gap: .12rem; flex-shrink: 0;
         border: 1px solid #d1d5db; background: #fff; border-radius: 10px;
-        padding: .45rem .65rem; font-size: .78rem; cursor: pointer; white-space: nowrap;
+        padding: .4rem .55rem; font-size: .74rem; cursor: pointer; white-space: normal;
+        min-width: 165px; max-width: 225px;
       }
+      /* 3-Zeilen-Gegner-Karte: Status / Gegner / Datum */
+      .hc-top { display: flex; align-items: center; justify-content: space-between; gap: .3rem; }
+      .hc-status { font-weight: 700; font-size: .66rem; letter-spacing: .02em; display: flex; align-items: center; gap: .3rem; }
+      .hc-status.live { color: #b91c1c; }
+      .hc-status.plan { color: #2563eb; }
+      .hc-status.done { color: #6b7280; }
+      .hc-ort { font-size: .8rem; }
+      .hc-geit b { font-weight: 600; color: #374151; }
+      .hc-zeit2 { color: #6b7280; font-size: .66rem; }
       .heutecard:hover { border-color: #2563eb; background: #eff6ff; }
       .heutecard.pinned { border-color: #1e3a8a; background: #dbeafe; }
       .heutecard .hc-zeit { font-weight: 700; color: #6b7280; font-size: .72rem; }
@@ -1169,7 +1179,10 @@
         const istTeam = (m) =>
           (tid ? (m.t1i === tid || m.t2i === tid)
                : (normTeam(m.t1r) === nName || normTeam(m.t2r) === nName));
-        const spiele = tickerIndex.filter(istTeam).sort((a, b) => a.date - b.date);
+        // Reihenfolge (Nutzer-Wunsch 31.10.): LIVE-Spiele IMMER vorne,
+        // danach geplante Spiele (aufsteigend), beendete ganz hinten.
+        const rang = (m) => (m.an && !m.fi) ? 0 : (!m.fi ? 1 : 2);
+        const spiele = tickerIndex.filter(istTeam).sort((a, b) => rang(a) - rang(b) || a.date - b.date);
         if (!spiele.length) {
           // Kein Spiel der gewaehlten Mannschaft im ±7-Tage-Fenster:
           // Info-Zeile ueber dem Ticker – und der Live-Ticker (iframe)
@@ -1205,25 +1218,31 @@
           const istHeute = berlinTag(m.date) === heute;
           const zeit = zeitFmt.format(new Date(m.date));
           const tagDatum = tagDatumFmt.format(new Date(m.date)); // z. B. "Sa., 31.10."
-          const ergFertig = (m.sp1 !== undefined && m.sp2 !== undefined) ? '<span class="erg">' + m.sp1 + ":" + m.sp2 + '</span>' : "";
+          const ergFertig = (m.sp1 !== undefined && m.sp2 !== undefined) ? m.sp1 + ":" + m.sp2 : "";
           const card = document.createElement("button");
           card.className = "heutecard" + (live ? " live" : "") + (fertig ? " done" : "") + (pinAktiv ? " pinned" : "") + (!live && !fertig ? " inaktiv" : "");
-          // Karten-Reihenfolge (Nutzer-Wunsch 31.10.): Icon - Datum -
-          // Paarung - Ergebnis - 📌-Nadel. Die Nadel steht GANZ AM ENDE
-          // und nur bei klickbaren Spielen (LIVE/beendet) – geplante
-          // Spiele haben noch keine Detail-URL. Geplante Spiele
-          // bekommen "startet am:" vor Icon + Datum (Nutzer-Wunsch).
-          const badge = live
-            ? '<span class="livedot"></span><span class="hc-zeit">LIVE</span>'
+          // Karten-Design (Nutzer-Wunsch 31.10.): kompakte 3-Zeilen-Karte
+          // im GEGNER-Prinzip – der eigene Teamname entfaellt (Kontext
+          // ist die gewaehlte Mannschaft), stattdessen Heim/Auswaerts:
+          //   Zeile 1: Status (LIVE / 📅 GEPLANT / ✅ BEENDET), bei
+          //            beendet das Satz-Ergebnis, 📌-Nadel ganz rechts
+          //   Zeile 2: 🏙/✈️ Gegner
+          //   Zeile 3: Datum · Uhrzeit (bei "heute" nur heute/Uhrzeit)
+          const heim = tid ? (m.t1i === tid) : (normTeam(m.t1r) === nName);
+          const gegner = heim ? m.t2r : m.t1r;
+          const status = live
+            ? '<span class="hc-status live"><span class="livedot"></span>LIVE</span>'
             : fertig
-              ? '<span class="hc-zeit">✅ ' + (istHeute ? "heute" : tagDatum) + "</span>"
-              : '<span class="hc-zeit">startet am: 📅 ' + (istHeute
-                  ? "heute · " + (zeit === "00:00" ? "–" : zeit)
-                  : tagDatum + (zeit === "00:00" ? "" : " · " + zeit)) + "</span>";
-          const paarung =
-            '<span><b' + (m.t1r && m.t1r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t1r) + '</b> – <b' + (m.t2r && m.t2r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t2r) + '</b></span>';
-          const ergHtml = fertig ? ergFertig : "";
-          card.innerHTML = badge + paarung + (ergHtml ? " " + ergHtml : "") + ((live || fertig) ? ' <span class="hc-pin">📌</span>' : "");
+              ? '<span class="hc-status done">✅ BEENDET</span>'
+              : '<span class="hc-status plan">📅 GEPLANT</span>';
+          const datumZeit = (istHeute ? "heute" : tagDatum) + (zeit === "00:00" ? "" : " · " + zeit);
+          card.innerHTML =
+            '<span class="hc-top">' + status +
+              (ergFertig ? '<span class="erg">' + ergFertig + '</span>' : "") +
+              ((live || fertig) ? '<span class="hc-pin">📌</span>' : "") +
+            '</span>' +
+            '<span class="hc-geit"><span class="hc-ort">' + (heim ? "🏠" : "✈️") + '</span> <b' + (gegner && gegner.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(gegner) + '</b></span>' +
+            '<span class="hc-zeit2">' + (live ? (istHeute ? "heute" + (zeit === "00:00" ? "" : " · " + zeit) : datumZeit) : datumZeit) + '</span>';
           if (live || fertig) {
             card.title = live
               ? "Dieses Spiel läuft gerade – Live-Ticker öffnen (anpinnen)"
