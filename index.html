@@ -1250,6 +1250,15 @@
           .finally(() => { tickerIndexLaden = false; });
       }
 
+      // Index nach App-Start (2,5 s) laden und alle 10 Min auffrischen
+      // (Cache-Buster ?t= im fetch umgeht den Service-Worker-Cache).
+      // WICHTIG: Ohne diese beiden Aufrufe bleibt tickerIndex = null und
+      // Heute-Zeile, ASV-heute-Liste UND Team-Suche zeigen endlos
+      // "Spiele werden geladen …" (Zeilen waren beim v12-Feinschliff
+      // versehentlich mit entfernt – 31.10. zurückgebaut).
+      setTimeout(refreshTickerIndex, 2500);
+      setInterval(refreshTickerIndex, 10 * 60 * 1000);
+
       // ---------------- Fallback, falls Einbetten gesperrt ----------------
       setTimeout(() => {
         document.querySelectorAll(".ticker-frame").forEach((f) => {
