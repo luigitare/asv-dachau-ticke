@@ -169,11 +169,6 @@
         border: 1px solid #d1d5db; background: #fff; border-radius: 8px;
         padding: .35rem .6rem; font-size: .78rem; cursor: pointer;
       }
-      .pinrow .hint {
-        width: 100%; font-size: .78rem; line-height: 1.45; color: #374151;
-        background: #f3f4f6; border-radius: 8px; padding: .5rem .6rem;
-      }
-      .pinrow .hint b { color: #1e3a8a; }
       .ticker-frame { width: 100%; height: 640px; border: none; background: #fff; }
       .fallback { margin-top: .6rem; font-size: .82rem; color: #6b7280; display: none; }
       .fallback a { color: #1e3a8a; }
@@ -243,6 +238,9 @@
           <div class="rowlabel2">Ansicht</div>
           <!-- Zeile 0: Modus-Wahl (ersetzt die frueheren Fuss-Buttons) -->
           <div class="filterrow" id="modeRow"></div>
+          <!-- Zuletzt gewaehlte fremde Mannschaften (max. 3, Favoriten) -->
+          <div class="rowlabel2" id="favLabel" style="display:none">Zuletzt gewählt</div>
+          <div class="filterrow" id="favRow" style="display:none"></div>
           <div class="rowlabel2" id="teamRowsLabel">Mannschaft</div>
           <!-- Stufe 1: Kategorie -->
           <div class="filterrow" id="catRow"></div>
@@ -279,7 +277,6 @@
             <input type="url" id="nfPinInput" placeholder="Hier Spiel-Link einfügen (bvv.sams-ticker.de/detail/…)" />
             <button class="pinsave" id="nfPinSave">anpinnen</button>
             <button class="pinclear" id="nfPinClear">✕</button>
-            <span class="hint" id="nfPinHint"></span>
           </div>
         </div></div>
         <iframe class="ticker-frame" id="nfFrame" title="BVV Live-Ticker – Alle Spiele" allow="fullscreen"></iframe>
@@ -469,7 +466,6 @@
                   <input type="url" placeholder="Hier Spiel-Link einfügen (bvv.sams-ticker.de/detail/…)" />
                   <button class="pinsave">anpinnen</button>
                   <button class="pinclear">✕</button>
-                  <span class="hint"></span>
                 </div>
               </div></div>
               <iframe class="ticker-frame" title="BVV Live-Ticker ${t.league}" allow="fullscreen"></iframe>
@@ -534,7 +530,6 @@
         // Pin: Spiel-Detail-URL pro Team speichern/löschen
         const pinWrap = el.querySelector(".pinwrap");
         const pinInput = el.querySelector(".pinrow input");
-        const pinHint = el.querySelector(".pinrow .hint");
         el._pinToggle = () => pinWrap.classList.toggle("open");
         const setPinHint = () => {
           const p = pinOf(t.idx);
@@ -542,9 +537,6 @@
           el.querySelector(".pinbar").classList.toggle("show", !!p);
           // Solange ein Pin gesetzt ist, bleibt der Bereich offen sichtbar
           pinWrap.classList.toggle("open", !!p);
-          pinHint.innerHTML = p
-            ? "📌 Dieses Spiel ist angepinnt: <b>" + p.replace("https://bvv.sams-ticker.de/", "") + "</b> – der Ticker zeigt es direkt an. Mit ✕ entfernen."
-            : "📋 <b>So fixierst du ein bestimmtes Spiel:</b><br>1. Im Ticker auf das Spiel tippen (bzw. Spielstand lange drücken → „Link kopieren“ / „URL kopieren“).<br>2. Den kopierten Link hier einfügen und „anpinnen“.<br>Der Ticker zeigt dann genau dieses Spiel statt der ganzen Liga – ideal am Spieltag. 📌";
         };
         setPinHint();
         el.querySelector(".pinsave").onclick = () => {
@@ -552,7 +544,8 @@
           // Großzügig sein: auch ohne "https://" eingefügte Links akzeptieren
           if (/^bvv\.sams-ticker\.de\/detail\/.+/.test(v)) v = "https://" + v;
           if (!/^https:\/\/bvv\.sams-ticker\.de\/detail\/.+/.test(v)) {
-            pinHint.textContent = "⚠️ Das sieht nicht nach einem Spiel-Link aus. Er sollte mit bvv.sams-ticker.de/detail/… beginnen (z. B. durch „URL kopieren“ im Ticker).";
+            pinInput.style.borderColor = "#dc2626"; pinInput.focus();
+            setTimeout(() => { pinInput.style.borderColor = ""; }, 1800);
             return;
           }
           setPin(t.idx, v);
@@ -639,7 +632,6 @@
       // Pin für die "Ohne ASV-Filter"-Ansicht (eigener Speicherplatz)
       const nfPinWrap = document.getElementById("nfPinWrap");
       const nfPinInput = document.getElementById("nfPinInput");
-      const nfPinHint = document.getElementById("nfPinHint");
       noFilterView._pinToggle = () => nfPinWrap.classList.toggle("open");
       const NF_URL = "https://bvv.sams-ticker.de/";
       function nfTargetSrc() { return pinOf("nofilter") || NF_URL; }
@@ -649,16 +641,14 @@
         document.getElementById("nfPinbar").classList.toggle("show", !!p);
         // Solange ein Pin gesetzt ist, bleibt der Bereich offen sichtbar
         nfPinWrap.classList.toggle("open", !!p);
-        nfPinHint.innerHTML = p
-          ? "📌 Dieses Spiel ist angepinnt: <b>" + p.replace("https://bvv.sams-ticker.de/", "") + "</b> – der Ticker zeigt es direkt an. Mit ✕ entfernen."
-            : "📋 <b>So fixierst du ein bestimmtes Spiel:</b><br>1. Im Ticker auf das Spiel tippen (bzw. Spielstand lange drücken → „Link kopieren“ / „URL kopieren“).<br>2. Den kopierten Link hier einfügen und „anpinnen“.<br>Der Ticker zeigt dann genau dieses Spiel – auch fremde Vereine. 📌";
       }
       nfSetPinHint();
       document.getElementById("nfPinSave").onclick = () => {
         let v = nfPinInput.value.trim();
         if (/^bvv\.sams-ticker\.de\/detail\/.+/.test(v)) v = "https://" + v;
         if (!/^https:\/\/bvv\.sams-ticker\.de\/detail\/.+/.test(v)) {
-          nfPinHint.textContent = "⚠️ Das sieht nicht nach einem Spiel-Link aus. Er sollte mit bvv.sams-ticker.de/detail/… beginnen (z. B. durch „URL kopieren“ im Ticker).";
+          nfPinInput.style.borderColor = "#dc2626"; nfPinInput.focus();
+          setTimeout(() => { nfPinInput.style.borderColor = ""; }, 1800);
           return;
         }
         setPin("nofilter", v);
@@ -723,8 +713,8 @@
       }
 
       // ---------------- Modus-Zeile (Zeile 0 des Menüs) ----------------
-      // Drei Modi: Team-Auswahl (gewohnte Logik), alle ASV-Spiele heute,
-      // alle BVV-Spiele heute (ehem. "ohne Filter").
+      // Modi: ASV Team, alle ASV Spiele heute, 🔍 Suche, ohne Filter
+      // (ohne Filter = alle BVV-Spiele heute, ganz rechts - 31.10.).
       const modeRow = document.getElementById("modeRow");
       const teamRowsLabel = document.getElementById("teamRowsLabel");
       function renderModeRow() {
@@ -745,21 +735,21 @@
           menuOpen = false;
           renderAll();
         }));
-        modeRow.appendChild(chip("alle BVV heute", !!state.noFilter, () => {
-          state.noFilter = true;
-          state.asvHeute = false;
-          state.search = false;
-          state.fremd = null;
-          state.cat = null; state.grp = null; state.entry = null;
-          menuOpen = false;
-          renderAll();
-        }));
         modeRow.appendChild(chip("🔍 Suche", !!(state.search || state.fremd), () => {
           state.noFilter = false;
           state.asvHeute = false;
           state.search = true;
           suchFokus = true; // Suchfeld direkt fokussieren (Tastatur öffnet sich)
           menuOpen = true; // Suche läuft IM MENÜ: offen lassen
+          renderAll();
+        }));
+        modeRow.appendChild(chip("ohne Filter", !!state.noFilter, () => {
+          state.noFilter = true;
+          state.asvHeute = false;
+          state.search = false;
+          state.fremd = null;
+          state.cat = null; state.grp = null; state.entry = null;
+          menuOpen = false;
           renderAll();
         }));
       }
@@ -822,46 +812,15 @@
       // Die Auswahl einer fremden Mannschaft wird NICHT in state.entry
       // gelegt (dort liegen CONFIG-Indexnummern), sondern separat in
       // state.fremd = { name, klasse, series, teamId, liga }. Die Ansicht
-      // entspricht einem ASV-Team (Ticker/Spielplan/Tabelle); der Container
-      // wird erst bei Bedarf gebaut, Spielplan/Tabelle holen ihre Daten
-      // ueber dieselbe BVV-Schnittstelle wie das Widget (verifiziert
-      // 30.10. – das geladene Widget-Skript initialisiert nur beim
-      // Seitenstart, dynamische Container muessen selbst nachladen).
+      // zeigt NUR den Live-Ticker (Spielplan/Tabelle gibt es fuer fremde
+      // Teams nicht - die BVV-Schnittstelle liefert dem Widget-Key keine
+      // Daten dafuer, Nutzer-Rueckmeldung 31.10.); der Container wird
+      // erst bei Bedarf gebaut.
       function fremdPinKey(f) { return "fremd|" + f.series + "|" + f.teamId; }
       function currentEntry() {
         if (state.fremd) return fremdEintrag(state.fremd);
         if (state.entry !== null) return CONFIG[state.entry];
         return null;
-      }
-      const VAPI_URL = "https://api.volleyball-bayern.de/jsi/data.json.php";
-      // BVV-Daten fuer EINEN dynamischen .vapi-Container nachladen
-      function ladeFremdVapi(pane, f, typ) {
-        if (pane.dataset.geladen) return;
-        pane.dataset.geladen = "1";
-        pane.innerHTML = '<div class="asvcard inaktiv">⏳ wird geladen …</div>';
-        const sub = { w: f.series, type: typ };
-        if (typ === "spiele") { sub.teams = [f.teamId]; sub.teamfilter = [f.teamId]; sub.heimspielkennzeichen = "(H)"; }
-        if (typ === "tabelle") { sub.teams = [f.teamId]; }
-        const cfg = {
-          multimode: 1,
-          key: "ff8671c3-ef58-433d-93c5-0f1e580c4347",
-          version: "2.4.0",
-          build: "2026-10-30-12-10-56--35.204.131.198",
-          buildhash: "c124ee136b718895854e4aec192613e7",
-          subs: [sub],
-        };
-        fetch(VAPI_URL, {
-          method: "POST",
-          headers: { "Content-type": "application/x-www-form-urlencoded" },
-          body: "data=" + encodeURIComponent(JSON.stringify(cfg)),
-        })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((d) => {
-            const html = d && d.subs && d.subs[0] && d.subs[0].content;
-            if (html) { pane.innerHTML = html; pane.classList.add("vapiclass"); }
-            else pane.innerHTML = '<div class="asvcard inaktiv">Zurzeit keine Daten verfügbar.</div>';
-          })
-          .catch(() => { pane.innerHTML = '<div class="asvcard inaktiv">Zurzeit keine Daten verfügbar.</div>'; });
       }
       let fremdEl = null;   // gebauter DOM-Container
       let fremdKey = "";    // series|teamId des gebauten Containers
@@ -881,7 +840,6 @@
                   <input type="url" placeholder="Hier Spiel-Link einfügen (bvv.sams-ticker.de/detail/…)" />
                   <button class="pinsave">anpinnen</button>
                   <button class="pinclear">✕</button>
-                  <span class="hint"></span>
                 </div>
               </div></div>
               <iframe class="ticker-frame" title="BVV Live-Ticker ${escHtml(f.liga || "")}" allow="fullscreen"></iframe>
@@ -891,9 +849,7 @@
               </p>
             </div>
           </div>
-          ${f.teamId ? `
-          <div class="tabpane" id="e-fremd-spiele"><div class="card"><div class="vapi"></div></div></div>
-          <div class="tabpane" id="e-fremd-tabelle"><div class="card"><div class="vapi"></div></div></div>` : ""}`;
+          `;
         teamview.appendChild(el);
         fremdEl = el;
         fremdKey = key;
@@ -914,22 +870,19 @@
         };
         const pinWrap = el.querySelector(".pinwrap");
         const pinInput = el.querySelector(".pinrow input");
-        const pinHint = el.querySelector(".pinrow .hint");
         el._pinToggle = () => pinWrap.classList.toggle("open");
         const setPinHint = () => {
           const p = pinOf(pinKey);
           el.querySelector(".pinbar").classList.toggle("show", !!p);
           pinWrap.classList.toggle("open", !!p);
-          pinHint.innerHTML = p
-            ? "📌 Dieses Spiel ist angepinnt: <b>" + p.replace("https://bvv.sams-ticker.de/", "") + "</b> – der Ticker zeigt es direkt an. Mit ✕ entfernen."
-            : "📋 <b>So fixierst du ein bestimmtes Spiel:</b><br>1. Im Ticker auf das Spiel tippen (bzw. Spielstand lange drücken → „Link kopieren“ / „URL kopieren“).<br>2. Den kopierten Link hier einfügen und „anpinnen“.<br>Der Ticker zeigt dann genau dieses Spiel statt der ganzen Liga – ideal am Spieltag. 📌";
         };
         setPinHint();
         el.querySelector(".pinsave").onclick = () => {
           let v = pinInput.value.trim();
           if (/^bvv\.sams-ticker\.de\/detail\/.+/.test(v)) v = "https://" + v;
           if (!/^https:\/\/bvv\.sams-ticker\.de\/detail\/.+/.test(v)) {
-            pinHint.textContent = "⚠️ Das sieht nicht nach einem Spiel-Link aus. Er sollte mit bvv.sams-ticker.de/detail/… beginnen (z. B. durch „URL kopieren“ im Ticker).";
+            pinInput.style.borderColor = "#dc2626"; pinInput.focus();
+            setTimeout(() => { pinInput.style.borderColor = ""; }, 1800);
             return;
           }
           setPin(pinKey, v);
@@ -976,11 +929,6 @@
           if (fr.src !== src && fr.src !== "about:blank") fr.src = src;
           if (!fr.src) fr.src = src;
           t.querySelector(".fallback-link").href = src;
-          // Spielplan/Tabelle: BVV-Daten nur bei Bedarf (lazy) nachladen
-          if (state.tab === "spiele" || state.tab === "tabelle") {
-            const p = t.querySelector("#e-fremd-" + state.tab + " .vapi");
-            if (p) ladeFremdVapi(p, state.fremd, state.tab);
-          }
           return;
         }
         if (state.entry === null) return;
@@ -1011,10 +959,10 @@
       function renderTabRow() {
         tabRow.innerHTML = "";
         if (!state.tab) state.tab = "ticker";
-        // Bei externen Einträgen (z. B. BVV-Tagesübersicht) gibt es
+        // Bei fremden Mannschaften und externen Einträgen gibt es
         // keinen Spielplan/Tabelle -> nur den Ticker-Reiter zeigen
         const cur = currentEntry();
-        const tabs = (cur && (cur.externalUrl || (cur.fremd && !cur.teamId))) ? TABS.filter((x) => x.id === "ticker") : TABS;
+        const tabs = (state.fremd || (cur && cur.externalUrl)) ? TABS.filter((x) => x.id === "ticker") : TABS;
         tabs.forEach((tb) => {
           tabRow.appendChild(chip(tb.label, state.tab === tb.id, () => {
             state.tab = tb.id;
@@ -1110,20 +1058,26 @@
           const ergFertig = (m.sp1 !== undefined && m.sp2 !== undefined) ? '<span class="erg">' + m.sp1 + ":" + m.sp2 + '</span>' : "";
           const card = document.createElement("button");
           card.className = "heutecard" + (live ? " live" : "") + (fertig ? " done" : "") + (pinAktiv ? " pinned" : "") + (!live && !fertig ? " inaktiv" : "");
-          // Badge: LIVE mit pulsierendem Punkt; beendet mit Satz-Ergebnis
-          // + Datum (heutige Spiele sagen "heute"); geplant mit Datum +
-          // Uhrzeit – nicht-heutige zeigen den Wochentag, damit man
-          // Vergangenheit/Zukunft einordnen kann.
+          // Badge: LIVE mit pulsierendem Punkt; geplant mit Datum +
+          // Uhrzeit (nicht-heutige zeigen den Wochentag, damit man
+          // Vergangenheit/Zukunft einordnen kann). Beendete Spiele:
+          // Paarung zuerst, dahinter ✅ + Datum und das Satz-Ergebnis
+          // AM ENDE – ohne "Ticker ansehen"-Text (Nutzer-Wunsch 31.10.).
+          // 📌-Nadel nur bei klickbaren Spielen (LIVE/beendet) – geplante
+          // Spiele haben noch keine Detail-URL (Nutzer-Wunsch 31.10.).
           const badge = live
             ? '<span class="livedot"></span><span class="hc-zeit">LIVE</span>'
             : fertig
-              ? ergFertig + '<span class="hc-zeit">✅ ' + (istHeute ? "heute" : tagDatum) + " · Ticker ansehen</span>"
+              ? "" // beendet: kein Badge vor der Paarung
               : '<span class="hc-zeit">📅 ' + (istHeute
                   ? "Heute · " + (zeit === "00:00" ? "–" : zeit)
                   : tagDatum + (zeit === "00:00" ? "" : " · " + zeit)) + "</span>";
+          const ende = fertig
+            ? ' <span class="hc-zeit">✅ ' + (istHeute ? "heute" : tagDatum) + "</span>" + ergFertig
+            : "";
           const paarung =
-            '<span><b' + (m.t1r && m.t1r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t1r) + '</b> – <b' + (m.t2r && m.t2r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t2r) + '</b> 📌</span>';
-          card.innerHTML = badge + paarung;
+            '<span><b' + (m.t1r && m.t1r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t1r) + '</b> – <b' + (m.t2r && m.t2r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t2r) + '</b>' + ((live || fertig) ? " 📌" : "") + '</span>';
+          card.innerHTML = badge + paarung + ende;
           if (live || fertig) {
             card.title = live
               ? "Dieses Spiel läuft gerade – Live-Ticker öffnen (anpinnen)"
@@ -1265,8 +1219,34 @@
           || ms[0];
         return { series: ref.series, teamId: (ref.t1r === name ? ref.t1i : ref.t2i) || "" };
       }
-      // Fremdes Team auswaehlen (wie ein ASV-Team mit drei Reitern)
+      // ---------------- Zuletzt gewaehlte Mannschaften ----------------
+      // Max. 3 zuletzt angeklickte (Such-)Mannschaften als schnelle
+      // Auswahl-Buttons im Menue ("Favoriten", Nutzer-Wunsch 31.10.).
+      const FAV_KEY = "asvFremdLast-v1";
+      let fremdLast = [];
+      try { fremdLast = JSON.parse(localStorage.getItem(FAV_KEY) || "[]") || []; } catch (e) { fremdLast = []; }
+      const favRow = document.getElementById("favRow");
+      const favLabel = document.getElementById("favLabel");
+      function merkFremd(f) {
+        const key = f.series + "|" + f.teamId;
+        fremdLast = [f].concat(fremdLast.filter((x) => (x.series + "|" + x.teamId) !== key)).slice(0, 3);
+        try { localStorage.setItem(FAV_KEY, JSON.stringify(fremdLast)); } catch (e) { }
+      }
+      function renderFavoritenRow() {
+        favLabel.style.display = fremdLast.length ? "" : "none";
+        favRow.style.display = fremdLast.length ? "" : "none";
+        if (!fremdLast.length) return;
+        favRow.innerHTML = "";
+        fremdLast.forEach((f) => {
+          const aktiv = !!(state.fremd && state.fremd.series === f.series && state.fremd.teamId === f.teamId);
+          favRow.appendChild(chip(f.name + (f.klasse ? " · " + f.klasse : ""), aktiv, () => {
+            fremdWaehlen(f); // aktualisiert auch die Reihenfolge (zuletzt vorne)
+          }));
+        });
+      }
+      // Fremdes Team auswaehlen (Ansicht: nur Live-Ticker)
       function fremdWaehlen(f) {
+        merkFremd(f);
         state.noFilter = false;
         state.asvHeute = false;
         state.search = false;
@@ -1412,7 +1392,7 @@
         // Menü-Knopf: zeigt die aktuelle Auswahl, damit man sie ohne
         // Öffnen immer sieht
         if (state.noFilter) {
-          menuBtnLabel.textContent = "🌐 alle BVV heute";
+          menuBtnLabel.textContent = "🌐 ohne Filter";
         } else if (state.asvHeute) {
           menuBtnLabel.textContent = "🔥 ASV-Spiele heute";
         } else if (state.search) {
@@ -1436,6 +1416,7 @@
         tabRow.style.display = ((state.entry !== null || !!state.fremd) && !state.noFilter && !state.asvHeute && !state.search) ? "flex" : "none";
         // Modus-Zeile immer, Mannschafts-Zeilen nur im Team-Modus
         renderModeRow();
+        renderFavoritenRow();
         const teamMode = !state.noFilter && !state.asvHeute && !state.search && !state.fremd;
         teamRowsLabel.style.display = teamMode ? "" : "none";
         catRow.style.display = teamMode ? "" : "none";
