@@ -58,6 +58,13 @@
       }
       .suchhint { font-size: .72rem; color: #6b7280; }
       .suchcards { display: flex; flex-direction: column; gap: .4rem; }
+      /* Gruppierung: eine Karte pro Mannschaft, Spiel-Anzahl + Pfeil */
+      .asvcard .count { font-size: .72rem; color: #6b7280; }
+      .asvcard.live .count { color: #b91c1c; }
+      .asvcard .chev { margin-left: auto; color: #9ca3af; font-size: .75rem; }
+      /* aufklappbare Spiele einer Mannschaft (leicht eingerückt) */
+      .teamspiele { display: flex; flex-direction: column; gap: .35rem; margin: .35rem 0 .15rem .55rem; }
+      .teamspiele .asvcard { font-size: .75rem; padding: .38rem .6rem; }
       /* Pin-Hinweisleiste: nur sichtbar, wenn ein Pin gesetzt ist */
       .pinbar {
         display: none; align-items: center; justify-content: space-between; gap: .5rem;
@@ -1033,6 +1040,7 @@
       const sucheRow = document.getElementById("sucheRow");
       let suchText = "";
       let suchFokus = false;
+      let offeneTeams = new Set(); // aufgeklappte Mannschaften (überlebt Re-Render)
       function pinFremd(url) {
         setPin("nofilter", url);
         nfSetPinHint();
@@ -1116,9 +1124,58 @@
           fussEl.textContent = "Keine Treffer im Zeitfenster (ca. ±7 Tage). Tipp: nur den Vereinsnamen ohne Zusatz wie „II“ probieren.";
           return;
         }
-        spiele.slice(0, 60).forEach((m) => resEl.appendChild(suchKarte(m)));
-        fussEl.textContent = spiele.length + (spiele.length === 1 ? " Spiel" : " Spiele")
-          + (spiele.length > 60 ? " – nur die ersten 60 angezeigt, bitte genauer suchen" : "")
+        // Nach MANNSCHAFT gruppieren: eine Karte pro Team (Nutzer-Wunsch
+        // 31.10.), nicht mehr pro Einzel-Spiel. Anzeigename = Roh-Name
+        // aus dem Index. Spiel mit zwei Treffern (Mauerstetten vs.
+        // Mauerstetten II) steht sinnvollerweise in beiden Gruppen.
+        const teams = new Map(); // Anzeigename -> Spiele[]
+        spiele.forEach((m) => {
+          if (m.t1 && m.t1.includes(norm)) {
+            if (!teams.has(m.t1r)) teams.set(m.t1r, []);
+            teams.get(m.t1r).push(m);
+          }
+          if (m.t2 && m.t2.includes(norm)) {
+            if (!teams.has(m.t2r)) teams.set(m.t2r, []);
+            teams.get(m.t2r).push(m);
+          }
+        });
+        // Sortierung: Mannschaften mit LIVE-Spiel zuerst (rot,
+        // automatisch aufgeklappt), danach alphabetisch
+        const sortiert = [...teams.entries()].sort((a, b) => {
+          const liveA = a[1].some((m) => m.an && !m.fi) ? 0 : 1;
+          const liveB = b[1].some((m) => m.an && !m.fi) ? 0 : 1;
+          if (liveA !== liveB) return liveA - liveB;
+          return a[0].localeCompare(b[0], "de", { numeric: true });
+        });
+        sortiert.slice(0, 30).forEach(([name, ms]) => {
+          const live = ms.some((m) => m.an && !m.fi);
+          const t = configForMatch(ms[0]); // ASV? -> Klasse-Label (grp)
+          if (live) offeneTeams.add(name); // LIVE-Mannschaft aufgeklappt zeigen
+          const offen = offeneTeams.has(name);
+          const head = document.createElement("button");
+          head.className = "asvcard" + (live ? " live" : "");
+          const klasse = t ? '<span class="klasse">' + escHtml(t.grp) + '</span>' : "";
+          head.innerHTML = klasse
+            + (live ? '<span class="livedot"></span><span class="hc-zeit">LIVE</span>' : "")
+            + '<b' + (name.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(name) + '</b>'
+            + '<span class="count">· ' + ms.length + (ms.length === 1 ? " Spiel" : " Spiele") + '</span>'
+            + '<span class="chev">' + (offen ? "▾" : "▸") + '</span>';
+          head.title = offen ? "Spiele dieser Mannschaft einklappen" : "Spiele dieser Mannschaft anzeigen";
+          head.onclick = () => {
+            if (offeneTeams.has(name)) offeneTeams.delete(name); else offeneTeams.add(name);
+            updateSuchErgebnisse(); // nur Liste neu, Fokus/Fenster bleiben
+          };
+          resEl.appendChild(head);
+          const liste = document.createElement("div");
+          liste.className = "teamspiele";
+          liste.style.display = offen ? "flex" : "none";
+          ms.forEach((m) => liste.appendChild(suchKarte(m)));
+          resEl.appendChild(liste);
+        });
+        const tmCount = Math.min(sortiert.length, 30);
+        fussEl.textContent = tmCount + (tmCount === 1 ? " Mannschaft" : " Mannschaften")
+          + (sortiert.length > 30 ? " (von " + sortiert.length + " – bitte genauer suchen)" : "")
+          + " · " + spiele.length + (spiele.length === 1 ? " Spiel" : " Spiele")
           + " · Zeitfenster: ca. 7 Tage zurück bis 7 Tage voraus";
       }
       function renderSucheRow() {
