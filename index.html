@@ -604,8 +604,8 @@
       const floatBar = document.querySelector(".floatbar");
       // Schwebende Knöpfe: nur in der Ticker-Ansicht sinnvoll
       function updateFloatbar() {
-        const tickerActive = state.noFilter
-          || (state.entry !== null && (state.tab || "ticker") === "ticker");
+        const tickerActive = !state.search && (state.noFilter
+          || (state.entry !== null && (state.tab || "ticker") === "ticker"));
         floatBar.style.display = tickerActive ? "flex" : "none";
       }
       // Schwebende Knöpfe wirken auf die gerade aktive Ansicht
@@ -802,6 +802,10 @@
 
       function showEntry() {
         document.querySelectorAll(".entry").forEach((p) => p.classList.remove("active"));
+        // Such-Modus: unten GAR KEINE Ansicht (kein iframe, kein Lazy-Load
+        // des 18-MB-Tickers) – die bisherige Auswahl bleibt aber erhalten
+        // und ist nach dem Zurückschalten auf „ASV Team“ sofort wieder da.
+        if (state.search) return;
         if (state.noFilter) {
           noFilterView.classList.add("active");
           const nfSrc = nfTargetSrc();
@@ -894,7 +898,7 @@
       function renderHeuteRow() {
         heuteRow.innerHTML = "";
         heuteRow.style.display = "none";
-        if (state.entry === null || state.noFilter || state.asvHeute) return;
+        if (state.entry === null || state.noFilter || state.asvHeute || state.search) return;
         if (!tickerIndex || !tickerIndex.length) return;
         const t = CONFIG[state.entry];
         if (!t || !t.wettbewerb) return;
