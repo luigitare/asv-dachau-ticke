@@ -95,6 +95,15 @@
         display: flex; align-items: center; gap: .4rem;
       }
       .menubtn.open { background: #eff6ff; border-color: #2563eb; }
+      /* Runder Info-Knopf (?) oben rechts in der Kopfzeile:
+         links Logo, Mitte Menü/Filter, rechts Info-Button (Intro) */
+      .infobtn {
+        width: 40px; height: 40px; border-radius: 999px; flex-shrink: 0;
+        border: 1px solid #d1d5db; background: #fff; color: #1e3a8a;
+        font-size: 1.1rem; font-weight: 700; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .infobtn:active { background: #eff6ff; border-color: #2563eb; }
       .menupanel {
         position: absolute; top: calc(100% - .2rem); left: 0; right: 0;
         opacity: 0; transform: translateY(-6px); pointer-events: none;
@@ -181,6 +190,12 @@
       /* Heute-Zeile: Spiele des gewaehlten Wettbewerbs an diesem Tag */
       #heuteRow { margin: 0 0 .55rem; }
       #heuteRow .rowlabel2 { margin: 0 0 .25rem; }
+      /* Kein Spiel im ±7-Tage-Fenster: dezente Info-Zeile ueber dem Ticker */
+      .keinspiel {
+        font-size: .78rem; color: #6b7280; background: #f9fafb;
+        border: 1px dashed #d1d5db; border-radius: 10px;
+        padding: .45rem .65rem;
+      }
       .heutecards { display: flex; gap: .4rem; overflow-x: auto; padding-bottom: .15rem; }
       .heutecard {
         display: flex; align-items: center; gap: .45rem; flex-shrink: 0;
@@ -264,6 +279,8 @@
         <!-- Original-Vereinslogo, liegt im Repository neben der index.html -->
         <img class="logo" src="logo_c.svg" alt="ASV Dachau Volleys" />
         <button class="menubtn" id="menuBtn">☰ <span id="menuBtnLabel">Menü</span></button>
+        <!-- Runder Info-Knopf oben rechts: ruft das Intro erneut auf -->
+        <button class="infobtn" id="introBtn" title="Kurze Einführung">?</button>
       </header>
 
       <!-- Menü als Overlay: blendet ÜBER den Inhalt -->
@@ -286,7 +303,6 @@
           <!-- Team-Suche (Modus-Chip „🔍 Suche“): Eingabefeld +
                Mannschafts-Treffer stehen IM MENÜ -->
           <div id="sucheRow" style="display:none"></div>
-          <button class="closebtn" id="introBtn">ℹ️ Kurze Einführung</button>
           <button class="closebtn" id="menuCloseBtn">✕ Menü schließen</button>
         </div>
       </div>
@@ -675,12 +691,7 @@
         introOverlay.style.display = "none";
         try { localStorage.setItem(INTRO_KEY, "1"); } catch (e) { /* Storage gesperrt: Intro kommt beim naechsten Start wieder, harmlos */ }
       }
-      document.getElementById("introBtn").onclick = () => {
-        menuOpen = false;
-        if (state.search) state.search = false;
-        renderAll();
-        zeigeIntro();
-      };
+      document.getElementById("introBtn").onclick = zeigeIntro;
       document.getElementById("introLosBtn").onclick = schliesseIntro;
       try { if (!localStorage.getItem(INTRO_KEY)) zeigeIntro(); } catch (e) { zeigeIntro(); }
 
@@ -1128,7 +1139,13 @@
           (tid ? (m.t1i === tid || m.t2i === tid)
                : (normTeam(m.t1r) === nName || normTeam(m.t2r) === nName));
         const spiele = tickerIndex.filter(istTeam).sort((a, b) => a.date - b.date);
-        if (!spiele.length) return;
+        if (!spiele.length) {
+          // Kein Spiel der gewaehlten Mannschaft im ±7-Tage-Fenster:
+          // kurze Info-Zeile ueber dem Ticker statt gar nichts (31.10.)
+          heuteRow.innerHTML = '<div class="keinspiel">ℹ️ Im Zeitraum ± 7 Tagen findet kein Spiel statt.</div>';
+          heuteRow.style.display = "block";
+          return;
+        }
         const zeitFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
         const tagDatumFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", weekday: "short", day: "2-digit", month: "2-digit" });
         const heute = berlinTag(Date.now());
