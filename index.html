@@ -198,7 +198,6 @@
       .heutecard .hc-pin { font-size: .8rem; }
       .heutecard b { font-weight: 600; color: #374151; }
       .heutecard b.asv { color: #1e3a8a; }
-
       /* Noch nicht gestartetes Spiel: Karte nur Anzeige, nicht klickbar
          (es gibt noch keine Detail-URL im Ticker-Backend) */
       .heutecard.inaktiv { cursor: default; }
@@ -399,7 +398,6 @@
         { cat: "h", grp: "Herren 8", team: "ASV Dachau VIII", league: "Kreisliga 3 Männer", wettbewerb: "e4d55a45-caac-4452-9aee-9c3491273b78", teamId: "84934bb5-1eed-429f-b270-82cdc0b9b319" },
 
         // ---------------- DAMEN ----------------
-
         { cat: "d", grp: "Damen 1", team: "ASV Dachau", league: "Dritte Liga Ost Frauen", wettbewerb: "ea2fc469-c865-4b9b-a457-eb9b4debced0", teamId: "d0bb17c3-c076-41a7-b06a-78d347c26e5e" },
         { cat: "d", grp: "Damen 2", team: "ASV Dachau II", league: "Landesliga Süd-West Frauen", wettbewerb: "c6bfb1ea-ab19-43cc-b864-ae48865c3c22", teamId: "368c5a41-6a3a-4b95-8371-aa78ef160255" },
         { cat: "d", grp: "Damen 3", team: "ASV Dachau III", league: "Bezirksliga West Frauen", wettbewerb: "00572b76-b0a6-4730-9b69-965ef2c22335", teamId: "d9de5760-0b7b-4130-9f14-e47fd55e1516" },
@@ -600,7 +598,6 @@
       // ---------------- Auswahl: klassische Chip-Reihen im Menü ----------------
       const menuBtn = document.getElementById("menuBtn");
       const menuBtnLabel = document.getElementById("menuBtnLabel");
-
       const menuPanel = document.getElementById("menuPanel");
       const tabRow = document.getElementById("tabRow");
       // Menü beim ersten Besuch ohne Auswahl automatisch öffnen
@@ -801,7 +798,6 @@
           state.asvHeute = false;
           state.search = false;
           state.fremd = null;
-
           state.cat = null; state.grp = null; state.entry = null;
           menuOpen = false;
           renderAll();
@@ -1002,7 +998,6 @@
         tabs.forEach((tb) => {
           tabRow.appendChild(chip(tb.label, state.tab === tb.id, () => {
             state.tab = tb.id;
-
             showEntry();
             saveState();
             renderAll();
@@ -1203,7 +1198,6 @@
         // > erster Treffer. Wichtig fuer die Jugend: Viele Teams heissen
         // identisch ("ASV Dachau II" = U13 II UND U16 w II), Includes
         // allein greift da das falsche Team (31.10.).
-
         return treffer.find((e) => tid && e.teamId === tid)
           || treffer.find((e) => asvName === e.team)
           || treffer.find((e) => asvName && asvName.includes(e.team))
@@ -1404,7 +1398,6 @@
           return a[1].name.localeCompare(b[1].name, "de", { numeric: true });
         });
         sortiert.slice(0, 50).forEach(([k, tw]) => {
-
           const name = tw.name;
           const ms = tw.ms;
           const live = ms.some((m) => m.an && !m.fi);
@@ -1605,7 +1598,6 @@
       setInterval(refreshTickerIndex, 10 * 60 * 1000);
 
       // ---------------- Fallback, falls Einbetten gesperrt ----------------
-
       setTimeout(() => {
         document.querySelectorAll(".ticker-frame").forEach((f) => {
           try { if (f.contentWindow === null) f.parentElement.querySelector(".fallback").style.display = "block"; }
@@ -1639,5 +1631,4 @@
     </script>
   </body>
 </html>
-
 
