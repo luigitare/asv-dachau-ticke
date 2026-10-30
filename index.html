@@ -50,6 +50,14 @@
       .asvcard.done b { color: #374151; }
       .asvcard.done b.asv { color: #1e3a8a; }
       .asvcard .erg { font-weight: 700; color: #111827; font-size: .78rem; }
+      /* Team-Suche: Eingabefeld + Trefferliste (Modus-Chip "Suche") */
+      .suchwrap { display: flex; flex-direction: column; gap: .4rem; margin: 0 0 .55rem; }
+      .suchinput {
+        width: 100%; border: 2px solid #1e3a8a; border-radius: 10px;
+        padding: .5rem .7rem; font-size: .95rem; background: #fff;
+      }
+      .suchhint { font-size: .72rem; color: #6b7280; }
+      .suchcards { display: flex; flex-direction: column; gap: .4rem; }
       /* Pin-Hinweisleiste: nur sichtbar, wenn ein Pin gesetzt ist */
       .pinbar {
         display: none; align-items: center; justify-content: space-between; gap: .5rem;
@@ -245,6 +253,9 @@
          (unabhaengig vom gewaehlten Filter), Knopf im Menü -->
     <div id="asvHeute" style="display:none"></div>
 
+    <!-- Team-Suche: Eingabefeld + Trefferliste (Modus-Chip "🔍 Suche" im Menü) -->
+    <div id="sucheRow" style="display:none"></div>
+
     <div class="teamview" id="teamview"></div>
 
     <!-- Ohne ASV-Filter: nur der BVV-Ticker mit allen Spielen -->
@@ -403,14 +414,17 @@
       // Beim Start: nichts ausgewählt. Falls gespeichert, wird die
       // letzte Auswahl aus dem localStorage wiederhergestellt
       // (überlebt Tab schließen & Browser-Neustart, ohne Cookie-Alarm).
-      let state = { cat: null, grp: null, entry: null, noFilter: false, asvHeute: false, lastGrpByCat: {}, lastEntryByGrp: {} };
+      let state = { cat: null, grp: null, entry: null, noFilter: false, asvHeute: false, search: false, lastGrpByCat: {}, lastEntryByGrp: {} };
       const STORE_KEY = "asv-dachau-auswahl-v1";
       try {
         const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
         if (saved && typeof saved === "object") state = Object.assign(
-          { cat: null, grp: null, entry: null, noFilter: false, asvHeute: false, lastGrpByCat: {}, lastEntryByGrp: {} }, saved
+          { cat: null, grp: null, entry: null, noFilter: false, asvHeute: false, search: false, lastGrpByCat: {}, lastEntryByGrp: {} }, saved
         );
       } catch (e) { /* ignorieren */ }
+      // Such-Modus nie als Startzustand wiederherstellen (Eingabefeld
+      // wäre nach Neuladen ohnehin leer)
+      state.search = false;
 
       function rememberGrp(cat, grp) { state.lastGrpByCat[cat] = grp; }
       function rememberEntry(cat, grp, idx) {
@@ -696,14 +710,16 @@
       const teamRowsLabel = document.getElementById("teamRowsLabel");
       function renderModeRow() {
         modeRow.innerHTML = "";
-        modeRow.appendChild(chip("ASV Team", !state.noFilter && !state.asvHeute, () => {
+        modeRow.appendChild(chip("ASV Team", !state.noFilter && !state.asvHeute && !state.search, () => {
           state.noFilter = false;
           state.asvHeute = false;
+          state.search = false;
           renderAll(); // Menü bleibt offen -> Mannschaft wie gewohnt wählen
         }));
         modeRow.appendChild(chip("alle ASV Spiele heute", !!state.asvHeute, () => {
           state.noFilter = false;
           state.asvHeute = true;
+          state.search = false;
           state.tab = "ticker"; // Spielplan/Tabelle-Tabs sind in diesem Modus weg
           menuOpen = false;
           renderAll();
@@ -711,7 +727,16 @@
         modeRow.appendChild(chip("alle BVV heute", !!state.noFilter, () => {
           state.noFilter = true;
           state.asvHeute = false;
+          state.search = false;
           state.cat = null; state.grp = null; state.entry = null;
+          menuOpen = false;
+          renderAll();
+        }));
+        modeRow.appendChild(chip("🔍 Suche", !!state.search, () => {
+          state.noFilter = false;
+          state.asvHeute = false;
+          state.search = true;
+          suchFokus = true; // Suchfeld direkt fokussieren (Tastatur öffnet sich)
           menuOpen = false;
           renderAll();
         }));
@@ -723,6 +748,7 @@
           catRow.appendChild(chip(c.label, state.cat === c.id, () => {
             state.noFilter = false; // ASV-Auswahl aktiv -> Normalmodus
             state.asvHeute = false;
+            state.search = false;
             state.cat = c.id;
             const g = state.lastGrpByCat[c.id];
             state.grp = (g && grpsOfCat(c.id).includes(g)) ? g : null;
@@ -828,7 +854,7 @@
           ph.innerHTML = '👋 Tippe oben auf <b>☰ Menü</b> und wähle deine Mannschaft – Live-Ticker, Spielplan und Tabelle erscheinen sofort.';
           teamview.appendChild(ph);
         }
-        ph.style.display = (state.entry === null && !state.noFilter && !state.asvHeute) ? "block" : "none";
+        ph.style.display = (state.entry === null && !state.noFilter && !state.asvHeute && !state.search) ? "block" : "none";
       }
 
       // ---------------- Heute-Zeile unter der Tab-Leiste ----------------
@@ -995,6 +1021,139 @@
         asvHeuteRow.style.display = "block";
       }
 
+      // ---------------- Team-Suche (fremde Vereine & eigene) ----------------
+      // Modus "🔍 Suche": Freitext ueber ALLE Spiele des Ticker-Index
+      // (Zeitfenster ca. ±7 Tage). Treffer als Karten im bekannten
+      // Design: grau = beendet (mit Satz-Ergebnis), rot = LIVE (Ticker
+      // angelegt -> klickbar), weiss = geplant (unklickbar).
+      // ASV-Spiele erkennen ihre Mannschaft (CONFIG) - Klick wechselt
+      // wie gewohnt auf den Team-Filter und pinnt das Spiel. Fremde
+      // Spiele pinnen den Ticker der "alle BVV heute"-Ansicht genau
+      // auf dieses Spiel.
+      const sucheRow = document.getElementById("sucheRow");
+      let suchText = "";
+      let suchFokus = false;
+      function pinFremd(url) {
+        setPin("nofilter", url);
+        nfSetPinHint();
+        state.noFilter = true;
+        state.search = false;
+        state.asvHeute = false;
+        state.tab = "ticker";
+        saveState();
+        renderAll();
+        nfFrame.src = "about:blank";
+        setTimeout(() => { nfFrame.src = nfTargetSrc(); }, 50);
+      }
+      // Eine Treffer-Karte bauen (Zustandslogik wie die Heute-Karten)
+      function suchKarte(m) {
+        const t = configForMatch(m);
+        const live = !!(m.an && !m.fi);
+        const fertig = !!m.fi;
+        const zeitFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
+        const datumFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", weekday: "short", day: "2-digit", month: "2-digit" });
+        const zeit = zeitFmt.format(new Date(m.date));
+        const isHeute = berlinTag(m.date) === berlinTag(Date.now());
+        const card = document.createElement("button");
+        card.className = "asvcard" + (live ? " live" : "") + (fertig ? " done" : "") + (!live && !fertig ? " inaktiv" : "");
+        let badge = "";
+        if (live) {
+          badge = '<span class="livedot"></span><span class="hc-zeit">LIVE</span>';
+        } else if (fertig) {
+          badge = '<span class="hc-zeit">✅ ' + datumFmt.format(new Date(m.date)) + '</span>'
+            + ((m.sp1 !== undefined && m.sp2 !== undefined) ? '<span class="erg">' + m.sp1 + ":" + m.sp2 + '</span>' : "");
+        } else {
+          badge = '<span class="hc-zeit">📅 ' + (isHeute ? "Heute · " : datumFmt.format(new Date(m.date)) + " · ") + (zeit === "00:00" ? "–" : zeit) + '</span>';
+        }
+        // ASV-Treffer bekommen ihre Mannschafts-Klasse (grp) als Label
+        const klasse = t ? '<span class="klasse">' + escHtml(t.grp) + '</span>' : "";
+        const paarung =
+          '<span><b' + (m.t1r && m.t1r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t1r) + '</b> – <b' + (m.t2r && m.t2r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t2r) + '</b></span>';
+        card.innerHTML = klasse + badge + paarung;
+        const url = "https://bvv.sams-ticker.de/detail/" + m.id;
+        if (live) {
+          card.title = "Zum Live-Ticker dieses Spiels";
+          card.onclick = () => {
+            if (t) {
+              // ASV-Spiel: wie gewohnt auf die Mannschaft wechseln + anpinnen
+              state.noFilter = false;
+              state.asvHeute = false;
+              state.search = false;
+              state.cat = t.cat; state.grp = t.grp; state.entry = t.idx;
+              rememberEntry(t.cat, t.grp, t.idx);
+              state.tab = "ticker";
+              saveState();
+              renderAll();
+              if (t.el && t.el._pinTo) t.el._pinTo(url);
+            } else {
+              // Fremdes Spiel: "alle BVV heute"-Ansicht auf dieses Spiel pinnen
+              pinFremd(url);
+            }
+          };
+        } else {
+          card.title = fertig ? "Beendet" : "Klickbar, sobald der Ticker zum Spiel angelegt ist";
+        }
+        return card;
+      }
+      // Nur die Trefferliste aktualisieren (Eingabefeld bleibt stehen,
+      // Fokus und Tippposition gehen beim Tippen nicht verloren)
+      function updateSuchErgebnisse() {
+        if (!state.search) return;
+        const resEl = sucheRow.querySelector(".suchcards");
+        const fussEl = sucheRow.querySelector(".suchhint");
+        if (!resEl || !fussEl) return;
+        resEl.innerHTML = "";
+        if (!tickerIndex) { fussEl.textContent = "⏳ Spiele werden geladen …"; return; }
+        const norm = normTeam(suchText);
+        if (norm.length < 3) {
+          fussEl.textContent = "Bitte mindestens 3 Zeichen eingeben – z. B. „Mauerstetten“ oder „Dachau“.";
+          return;
+        }
+        const spiele = tickerIndex
+          .filter((m) => (m.t1 && m.t1.includes(norm)) || (m.t2 && m.t2.includes(norm)))
+          .sort((a, b) => a.date - b.date);
+        if (!spiele.length) {
+          fussEl.textContent = "Keine Treffer im Zeitfenster (ca. ±7 Tage). Tipp: nur den Vereinsnamen ohne Zusatz wie „II“ probieren.";
+          return;
+        }
+        spiele.slice(0, 60).forEach((m) => resEl.appendChild(suchKarte(m)));
+        fussEl.textContent = spiele.length + (spiele.length === 1 ? " Spiel" : " Spiele")
+          + (spiele.length > 60 ? " – nur die ersten 60 angezeigt, bitte genauer suchen" : "")
+          + " · Zeitfenster: ca. 7 Tage zurück bis 7 Tage voraus";
+      }
+      function renderSucheRow() {
+        sucheRow.innerHTML = "";
+        sucheRow.style.display = "none";
+        if (!state.search) return;
+        sucheRow.style.display = "block";
+        const wrap = document.createElement("div");
+        wrap.className = "suchwrap";
+        const inp = document.createElement("input");
+        inp.type = "search";
+        inp.className = "suchinput";
+        inp.placeholder = "🔍 Verein oder Team suchen (z. B. Mauerstetten) …";
+        inp.value = suchText;
+        inp.autocomplete = "off";
+        inp.addEventListener("input", () => {
+          suchText = inp.value;
+          updateSuchErgebnisse(); // nur Liste neu, kein renderAll (Fokus!)
+        });
+        wrap.appendChild(inp);
+        const res = document.createElement("div");
+        res.className = "suchcards";
+        wrap.appendChild(res);
+        const fuss = document.createElement("div");
+        fuss.className = "suchhint";
+        wrap.appendChild(fuss);
+        sucheRow.appendChild(wrap);
+        updateSuchErgebnisse();
+        if (suchFokus) {
+          suchFokus = false;
+          inp.focus();
+          try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) { }
+        }
+      }
+
       function renderAll() {
         // Gespeicherte Auswahl validieren: existiert der Eintrag noch?
         if (state.entry !== null && !CONFIG[state.entry]) { state.entry = null; state.grp = null; state.cat = null; menuOpen = true; }
@@ -1008,6 +1167,8 @@
           menuBtnLabel.textContent = "🌐 alle BVV heute";
         } else if (state.asvHeute) {
           menuBtnLabel.textContent = "🔥 ASV-Spiele heute";
+        } else if (state.search) {
+          menuBtnLabel.textContent = "🔍 Suche";
         } else if (state.entry !== null) {
           const e = CONFIG[state.entry];
           const cat = CATS.find((c) => c.id === state.cat);
@@ -1022,7 +1183,7 @@
         menuPanel.classList.toggle("open", menuOpen);
         // Reiter (Spielplan/Tabelle/Ticker) nur im Team-Modus – im
         // ASV-heute-Modus gibt es bewusst nur den Ticker ohne Reiter
-        tabRow.style.display = (state.entry !== null && !state.noFilter && !state.asvHeute) ? "flex" : "none";
+        tabRow.style.display = (state.entry !== null && !state.noFilter && !state.asvHeute && !state.search) ? "flex" : "none";
         // Modus-Zeile immer, Mannschafts-Zeilen nur im Team-Modus
         renderModeRow();
         const teamMode = !state.noFilter && !state.asvHeute;
@@ -1036,6 +1197,7 @@
         renderTabRow();
         renderHeuteRow();
         renderAsvHeuteRow();
+        renderSucheRow();
         showEntry();
         renderPlaceholder();
         // 📌-Knopf zeigt an, ob die aktive Ansicht einen Pin hat
@@ -1073,6 +1235,7 @@
         tickerIndex = idx;
         renderHeuteRow();
         renderAsvHeuteRow();
+        updateSuchErgebnisse();
       }
       function refreshTickerIndex() {
         if (tickerIndexLaden) return;
