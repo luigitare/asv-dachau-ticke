@@ -41,9 +41,10 @@
       /* geplant: nicht klickbar (noch keine Detail-URL) */
       .asvcard.inaktiv { cursor: default; }
       /* LIVE (Ticker angelegt): rot, pulsierend, klickbar */
-      .asvcard.live { border-color: #dc2626; background: #fef2f2; color: #991b1b; }
+      /* LIVE-Karten seit 31.10. NICHT mehr rot als Ganzes: weiss wie
+         geplante, nur der LIVE-Badge (Punkt + Text) ist rot. */
+      .asvcard.live { cursor: pointer; }
       .asvcard.live .hc-zeit { color: #b91c1c; }
-      .asvcard.live b { color: #b91c1c; }
       .asvcard.live b.asv { color: #1e3a8a; }
       /* beendet: grau mit Ergebnis, nicht mehr klickbar */
       .asvcard.done { border-color: #e5e7eb; background: #f9fafb; color: #6b7280; cursor: pointer; }
@@ -64,15 +65,17 @@
       .asvcard .chev { margin-left: auto; color: #9ca3af; font-size: .75rem; }
       /* Such-Trefferliste im Menü: bei langen Listen scrollbar */
       .suchcards { max-height: 45vh; overflow-y: auto; }
-      /* Pin-Hinweisleiste: nur sichtbar, wenn ein Pin gesetzt ist */
-      .pinbar {
+      /* Pin-Hinweis: schmales blaues Chip, NUR sichtbar, wenn ein Pin
+         aktiv ist (Pin-Zeilen/URL-Eingabe entfernt, Nutzer-Wunsch 31.10.:
+         entfernen laeuft ueber Toggle-Klick auf die Karte ODER ✕-Chip) */
+      .pinchip {
         display: none; align-items: center; justify-content: space-between; gap: .5rem;
         background: #dbeafe; border: 1px solid #93c5fd; border-radius: 10px;
         padding: .45rem .7rem; margin-bottom: .5rem;
         font-size: .8rem; color: #1e3a8a;
       }
-      .pinbar.show { display: flex; }
-      .pinbar button {
+      .pinchip.show { display: flex; }
+      .pinchip button {
         border: 1px solid #93c5fd; background: #fff; border-radius: 8px;
         padding: .25rem .55rem; font-size: .75rem; cursor: pointer; white-space: nowrap;
         color: #1e3a8a; font-weight: 600;
@@ -162,20 +165,9 @@
       }
       .fabhint { font-size: .68rem; font-weight: 600; color: #6b7280; margin-right: .3rem; }
 
-      /* Pin-Bereich: klappt nur bei Bedarf auf */
-      .pinwrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease; margin: 0 0 .2rem; }
-      .pinwrap.open { grid-template-rows: 1fr; }
-      .pinwrap > div { overflow: hidden; }
-      .pinrow { display: flex; gap: .4rem; margin: 0 0 .4rem; padding: 0 .25rem; flex-wrap: wrap; align-items: center; }
-      .pinrow input {
-        flex: 1; min-width: 200px; border: 1px solid #d1d5db; border-radius: 8px;
-        padding: .35rem .5rem; font-size: .78rem;
-      }
-      .pinrow button {
-        border: 1px solid #d1d5db; background: #fff; border-radius: 8px;
-        padding: .35rem .6rem; font-size: .78rem; cursor: pointer;
-      }
-      .ticker-frame { width: 100%; height: 640px; border: none; background: #fff; }
+      /* Pin-URL-Eingabe entfernt (31.10.): Pinnen laeuft nur noch ueber
+         die Heute-Karten (Toggle) bzw. den ✕-Chip. */
+      .ticker-frame { width: 100%; height: min(640px, max(420px, calc(100dvh - 260px))); border: none; background: #fff; }
       .fallback { margin-top: .6rem; font-size: .82rem; color: #6b7280; display: none; }
       .fallback a { color: #1e3a8a; }
       .note { font-size: .78rem; color: #9ca3af; margin-top: 1rem; }
@@ -213,7 +205,7 @@
       .hc-geit b { font-weight: 600; color: #374151; }
       .hc-zeit2 { color: #6b7280; font-size: .66rem; }
       .heutecard:hover { border-color: #2563eb; background: #eff6ff; }
-      .heutecard.pinned { border-color: #1e3a8a; background: #dbeafe; }
+      .heutecard.pinned { border-color: #1e3a8a; background: #dbeafe; outline: 2px solid #1e3a8a; }
       .heutecard .hc-zeit { font-weight: 700; color: #6b7280; font-size: .72rem; }
       .heutecard .hc-pin { font-size: .8rem; }
       .heutecard b { font-weight: 600; color: #374151; }
@@ -228,16 +220,9 @@
       .heutecard.done b { color: #374151; }
       .heutecard.done b.asv { color: #1e3a8a; }
       .heutecard.done .erg { font-weight: 700; color: #111827; font-size: .78rem; }
-      /* LIVE-Karte: Spiel gestartet, nicht beendet, heute datiert.
-         Die GLEICHE Heute-Karte wird zum Live-Button – rot mit
-         pulsierendem Punkt, Badge zeigt "LIVE" statt der Uhrzeit. */
-      .heutecard.live { border-color: #dc2626; background: #fef2f2; color: #991b1b; cursor: pointer; }
-      .heutecard.live:hover { background: #fee2e2; border-color: #dc2626; }
-      .heutecard.live .hc-zeit { color: #b91c1c; }
-      .heutecard.live b { color: #b91c1c; }
-      .heutecard.live b.asv { color: #1e3a8a; }
-      /* Angepinntes LIVE-Spiel: roter Ring um die Karte */
-      .heutecard.live.pinned { outline: 2px solid #dc2626; border-color: #dc2626; background: #fef2f2; }
+      /* LIVE-Karte seit 31.10.: weiss wie geplante Karten, nur der
+         LIVE-Badge (pulsierender Punkt + Text) ist rot. Angepinnt
+         (auch LIVE): blauer Ring + hellblauer Grund. */
       .livedot { width: 9px; height: 9px; border-radius: 999px; background: #dc2626; animation: livepulse 1.4s infinite; flex-shrink: 0; }
       @keyframes livepulse {
         0% { box-shadow: 0 0 0 0 rgba(220,38,38,.55); }
@@ -333,14 +318,7 @@
     <!-- Ohne ASV-Filter: nur der BVV-Ticker mit allen Spielen -->
     <div class="entry" id="nofilterview">
       <div class="card wide">
-        <div class="pinbar" id="nfPinbar"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button class="pinbarclear" id="nfPinbarClear">✕ entfernen</button></div>
-        <div class="pinwrap" id="nfPinWrap"><div>
-          <div class="pinrow">
-            <input type="url" id="nfPinInput" placeholder="Hier Spiel-Link einfügen (bvv.sams-ticker.de/detail/…)" />
-            <button class="pinsave" id="nfPinSave">anpinnen</button>
-            <button class="pinclear" id="nfPinClear">✕</button>
-          </div>
-        </div></div>
+        <div class="pinchip" id="nfPinChip"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button id="nfPinChipClear">✕ entfernen</button></div>
         <iframe class="ticker-frame" id="nfFrame" title="BVV Live-Ticker – Alle Spiele" allow="fullscreen"></iframe>
         <p class="fallback">
           Der Ticker lässt sich hier nicht direkt einbetten –
@@ -550,14 +528,7 @@
         el.innerHTML = `
           <div class="tabpane" id="e-${i}-ticker">
             <div class="card wide">
-              <div class="pinbar"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button class="pinbarclear">✕ entfernen</button></div>
-              <div class="pinwrap"><div>
-                <div class="pinrow">
-                  <input type="url" placeholder="Hier Spiel-Link einfügen (bvv.sams-ticker.de/detail/…)" />
-                  <button class="pinsave">anpinnen</button>
-                  <button class="pinclear">✕</button>
-                </div>
-              </div></div>
+              <div class="pinchip"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button class="pinchipclear">✕ entfernen</button></div>
               <iframe class="ticker-frame" title="BVV Live-Ticker ${t.league}" allow="fullscreen"></iframe>
               <p class="fallback">
                 Der Ticker lässt sich hier nicht direkt einbetten –
@@ -606,60 +577,30 @@
           setTimeout(() => { f.src = src; }, 50);
         };
 
-        // Spiel im eigenen Ticker-iframe laden (Klick auf Spielplan-Zeile):
+        // Spiel im eigenen Ticker-iframe laden (Klick auf Heute-Karte):
         // Pin auf dieses Spiel setzen und den Ticker darauf umschalten
         el._pinTo = (url) => {
           setPin(t.idx, url);
-          pinInput.value = url;
           setPinHint();
           const f = el.querySelector(".ticker-frame");
           f.src = "about:blank";
           setTimeout(() => { f.src = url; }, 50);
         };
-
-        // Pin: Spiel-Detail-URL pro Team speichern/löschen
-        const pinWrap = el.querySelector(".pinwrap");
-        const pinInput = el.querySelector(".pinrow input");
-        el._pinToggle = () => pinWrap.classList.toggle("open");
+        // Pin entfernen (Toggle-Klick auf die angepinnte Karte oder ✕-Chip):
+        // Ticker zeigt wieder die Liga-Uebersicht
+        el._pinDel = () => {
+          setPin(t.idx, "");
+          setPinHint();
+          const f = el.querySelector(".ticker-frame");
+          f.src = "about:blank";
+          setTimeout(() => { f.src = targetSrc(t); }, 50);
+        };
+        // ✕-Chip: nur sichtbar, wenn ein Pin aktiv ist (Pin-Zeilen weg, 31.10.)
         const setPinHint = () => {
-          const p = pinOf(t.idx);
-          // Pin-Hinweisleiste über dem Ticker einblenden, wenn ein Pin aktiv ist
-          el.querySelector(".pinbar").classList.toggle("show", !!p);
-          // Solange ein Pin gesetzt ist, bleibt der Bereich offen sichtbar
-          pinWrap.classList.toggle("open", !!p);
+          el.querySelector(".pinchip").classList.toggle("show", !!pinOf(t.idx));
         };
         setPinHint();
-        el.querySelector(".pinsave").onclick = () => {
-          let v = pinInput.value.trim();
-          // Großzügig sein: auch ohne "https://" eingefügte Links akzeptieren
-          if (/^bvv\.sams-ticker\.de\/detail\/.+/.test(v)) v = "https://" + v;
-          if (!/^https:\/\/bvv\.sams-ticker\.de\/detail\/.+/.test(v)) {
-            pinInput.style.borderColor = "#dc2626"; pinInput.focus();
-            setTimeout(() => { pinInput.style.borderColor = ""; }, 1800);
-            return;
-          }
-          setPin(t.idx, v);
-          setPinHint();
-          const f = el.querySelector(".ticker-frame");
-          f.src = "about:blank";
-          setTimeout(() => { f.src = v; }, 50);
-        };
-        el.querySelector(".pinclear").onclick = () => {
-          setPin(t.idx, "");
-          pinInput.value = "";
-          setPinHint();
-          const f = el.querySelector(".ticker-frame");
-          f.src = "about:blank";
-          setTimeout(() => { f.src = targetSrc(t); }, 50);
-        };
-        el.querySelector(".pinbarclear").onclick = () => {
-          setPin(t.idx, "");
-          pinInput.value = "";
-          setPinHint();
-          const f = el.querySelector(".ticker-frame");
-          f.src = "about:blank";
-          setTimeout(() => { f.src = targetSrc(t); }, 50);
-        };
+        el.querySelector(".pinchipclear").onclick = () => el._pinDel();
       });
 
       // Kurz-Label für Stufe 3: "ASV Dachau III" -> "ASV III" usw.
@@ -728,43 +669,17 @@
         setTimeout(() => { nfFrame.src = nfTargetSrc(); }, 50);
       };
 
-      // Pin für die "Ohne ASV-Filter"-Ansicht (eigener Speicherplatz)
-      const nfPinWrap = document.getElementById("nfPinWrap");
-      const nfPinInput = document.getElementById("nfPinInput");
-      noFilterView._pinToggle = () => nfPinWrap.classList.toggle("open");
+      // Pin für die "Ohne ASV-Filter"-Ansicht (eigener Speicherplatz):
+      // ohne URL-Eingabe koennen hier nur ALT-Pins liegen – der ✕-Chip
+      // blendet nur ein, wenn tatsaechlich einer aktiv ist (31.10.)
       const NF_URL = "https://bvv.sams-ticker.de/";
       function nfTargetSrc() { return pinOf("nofilter") || NF_URL; }
       function nfSetPinHint() {
-        const p = pinOf("nofilter");
-        // Pin-Hinweisleiste über dem Ticker einblenden, wenn ein Pin aktiv ist
-        document.getElementById("nfPinbar").classList.toggle("show", !!p);
-        // Solange ein Pin gesetzt ist, bleibt der Bereich offen sichtbar
-        nfPinWrap.classList.toggle("open", !!p);
+        document.getElementById("nfPinChip").classList.toggle("show", !!pinOf("nofilter"));
       }
       nfSetPinHint();
-      document.getElementById("nfPinSave").onclick = () => {
-        let v = nfPinInput.value.trim();
-        if (/^bvv\.sams-ticker\.de\/detail\/.+/.test(v)) v = "https://" + v;
-        if (!/^https:\/\/bvv\.sams-ticker\.de\/detail\/.+/.test(v)) {
-          nfPinInput.style.borderColor = "#dc2626"; nfPinInput.focus();
-          setTimeout(() => { nfPinInput.style.borderColor = ""; }, 1800);
-          return;
-        }
-        setPin("nofilter", v);
-        nfSetPinHint();
-        nfFrame.src = "about:blank";
-        setTimeout(() => { nfFrame.src = v; }, 50);
-      };
-      document.getElementById("nfPinClear").onclick = () => {
+      document.getElementById("nfPinChipClear").onclick = () => {
         setPin("nofilter", "");
-        nfPinInput.value = "";
-        nfSetPinHint();
-        nfFrame.src = "about:blank";
-        setTimeout(() => { nfFrame.src = nfTargetSrc(); }, 50);
-      };
-      document.getElementById("nfPinbarClear").onclick = () => {
-        setPin("nofilter", "");
-        nfPinInput.value = "";
         nfSetPinHint();
         nfFrame.src = "about:blank";
         setTimeout(() => { nfFrame.src = nfTargetSrc(); }, 50);
@@ -947,14 +862,7 @@
         el.innerHTML = `
           <div class="tabpane" id="e-fremd-ticker">
             <div class="card wide">
-              <div class="pinbar"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button class="pinbarclear">✕ entfernen</button></div>
-              <div class="pinwrap"><div>
-                <div class="pinrow">
-                  <input type="url" placeholder="Hier Spiel-Link einfügen (bvv.sams-ticker.de/detail/…)" />
-                  <button class="pinsave">anpinnen</button>
-                  <button class="pinclear">✕</button>
-                </div>
-              </div></div>
+              <div class="pinchip"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button class="pinchipclear">✕ entfernen</button></div>
               <iframe class="ticker-frame" title="BVV Live-Ticker ${escHtml(f.liga || "")}" allow="fullscreen"></iframe>
               <p class="fallback">
                 Der Ticker lässt sich hier nicht direkt einbetten –
@@ -975,45 +883,25 @@
         };
         el._pinTo = (url) => {
           setPin(pinKey, url);
-          el.querySelector(".pinrow input").value = url;
           setPinHint();
           const fr = el.querySelector(".ticker-frame");
           fr.src = "about:blank";
           setTimeout(() => { fr.src = url; }, 50);
         };
-        const pinWrap = el.querySelector(".pinwrap");
-        const pinInput = el.querySelector(".pinrow input");
-        el._pinToggle = () => pinWrap.classList.toggle("open");
-        const setPinHint = () => {
-          const p = pinOf(pinKey);
-          el.querySelector(".pinbar").classList.toggle("show", !!p);
-          pinWrap.classList.toggle("open", !!p);
-        };
-        setPinHint();
-        el.querySelector(".pinsave").onclick = () => {
-          let v = pinInput.value.trim();
-          if (/^bvv\.sams-ticker\.de\/detail\/.+/.test(v)) v = "https://" + v;
-          if (!/^https:\/\/bvv\.sams-ticker\.de\/detail\/.+/.test(v)) {
-            pinInput.style.borderColor = "#dc2626"; pinInput.focus();
-            setTimeout(() => { pinInput.style.borderColor = ""; }, 1800);
-            return;
-          }
-          setPin(pinKey, v);
-          setPinHint();
-          const fr = el.querySelector(".ticker-frame");
-          fr.src = "about:blank";
-          setTimeout(() => { fr.src = v; }, 50);
-        };
-        const pinWeg = () => {
+        // Pin entfernen (Toggle-Klick auf die angepinnte Karte oder ✕-Chip)
+        el._pinDel = () => {
           setPin(pinKey, "");
-          pinInput.value = "";
           setPinHint();
           const fr = el.querySelector(".ticker-frame");
           fr.src = "about:blank";
           setTimeout(() => { fr.src = zielSrc(); }, 50);
         };
-        el.querySelector(".pinclear").onclick = pinWeg;
-        el.querySelector(".pinbarclear").onclick = pinWeg;
+        // ✕-Chip: nur sichtbar, wenn ein Pin aktiv ist (Pin-Zeilen weg, 31.10.)
+        const setPinHint = () => {
+          el.querySelector(".pinchip").classList.toggle("show", !!pinOf(pinKey));
+        };
+        setPinHint();
+        el.querySelector(".pinchipclear").onclick = () => el._pinDel();
         return el;
       }
 
@@ -1245,13 +1133,20 @@
             '<span class="hc-zeit2">' + (live ? (istHeute ? "heute" + (zeit === "00:00" ? "" : " · " + zeit) : datumZeit) : datumZeit) + '</span>';
           if (live || fertig) {
             card.title = live
-              ? "Dieses Spiel läuft gerade – Live-Ticker öffnen (anpinnen)"
-              : "Beendet – Ticker mit dem Spielverlauf öffnen";
+              ? "Dieses Spiel läuft gerade – Live-Ticker öffnen (erneut antippen = Pin entfernen)"
+              : "Beendet – Ticker mit dem Spielverlauf öffnen (erneut antippen = Pin entfernen)";
             card.onclick = () => {
               state.tab = "ticker";
               saveState();
               renderAll();
-              pinZu(url);
+              // Toggle (Nutzer-Wunsch 31.10.): bereits angepinnt = Pin
+              // entfernen, sonst Spiel anpinnen
+              if (pinAktiv) {
+                if (fr) { if (t._pinDel) t._pinDel(); }
+                else if (t.el && t.el._pinDel) t.el._pinDel();
+              } else {
+                pinZu(url);
+              }
             };
           } else {
             card.title = "Klickbar, sobald das Spiel im Ticker startet";
@@ -1347,7 +1242,10 @@
                 state.tab = "ticker";
                 saveState();
                 renderAll();
-                if (t.el && t.el._pinTo) t.el._pinTo("https://bvv.sams-ticker.de/detail/" + m.id);
+                // Toggle (31.10.): bereits angepinnt = Pin entfernen
+                const u = "https://bvv.sams-ticker.de/detail/" + m.id;
+                if (t.el && pinOf(t.idx) === u && t.el._pinDel) t.el._pinDel();
+                else if (t.el && t.el._pinTo) t.el._pinTo(u);
               };
             } else {
               card.title = fertig ? "Beendet" : "Klickbar, sobald der Ticker zum Spiel angelegt ist";
