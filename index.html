@@ -86,6 +86,8 @@
         border-radius: 10px; padding: .45rem; font-size: .82rem; cursor: pointer;
       }
       .rowlabel2 { font-size: .65rem; color: #9ca3af; text-transform: uppercase; letter-spacing: .06em; margin: .2rem 0 .35rem; }
+      #favLabel { cursor: pointer; }
+      #favLabel:hover { color: #1e3a8a; }
 
       /* Mittiger Menü-Knopf, Menü blendet ÜBER den Inhalt */
       .menubtn {
@@ -139,22 +141,19 @@
       .tabpane.active { display: block; }
       .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem; overflow-x: auto; }
       .card.wide { border-radius: 10px; padding: .4rem; overflow: visible; }
-      /* Schwebende Steuerung unten rechts (Pin + Neu laden) */
+      /* Schwebende Steuerung unten rechts (Neu laden) */
       .floatbar {
         position: fixed; right: 14px; bottom: 14px; z-index: 300;
         display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
       }
-      .fab, .fabbig {
+      .fabbig {
         border: none; background: #1e3a8a; color: #fff; cursor: pointer;
         box-shadow: 0 4px 14px rgba(0,0,0,.3);
         display: flex; align-items: center; justify-content: center;
-      }
-      .fab { width: 46px; height: 46px; border-radius: 999px; font-size: 1.05rem; }
-      .fab.active { outline: 3px solid #93c5fd; }
-      .fabbig {
         height: 46px; border-radius: 999px; padding: 0 1.1rem; gap: .4rem;
         font-size: .85rem; font-weight: 600;
       }
+      .fabhint { font-size: .68rem; font-weight: 600; color: #6b7280; margin-right: .3rem; }
 
       /* Pin-Bereich: klappt nur bei Bedarf auf */
       .pinwrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s ease; margin: 0 0 .2rem; }
@@ -238,8 +237,9 @@
           <div class="rowlabel2">Ansicht</div>
           <!-- Zeile 0: Modus-Wahl (ersetzt die frueheren Fuss-Buttons) -->
           <div class="filterrow" id="modeRow"></div>
-          <!-- Zuletzt gewaehlte fremde Mannschaften (max. 3, Favoriten) -->
-          <div class="rowlabel2" id="favLabel" style="display:none">Zuletzt gewählt</div>
+          <!-- Zuletzt gesuchte Mannschaften (max. 3): Liste klappt
+               nur auf Klick auf die Zeile auf (Nutzer-Wunsch 31.10.) -->
+          <div class="rowlabel2" id="favLabel" style="display:none">🕘 Zuletzt gesucht ▾</div>
           <div class="filterrow" id="favRow" style="display:none"></div>
           <div class="rowlabel2" id="teamRowsLabel">Mannschaft</div>
           <!-- Stufe 1: Kategorie -->
@@ -289,7 +289,7 @@
 
     <!-- Schwebende Steuerung unten rechts über dem Ticker -->
     <div class="floatbar">
-      <button class="fab" id="floatPin" title="Spiel anpinnen">📌</button>
+      <span class="fabhint">Ticker hängt?</span>
       <button class="fabbig" id="floatReload" title="Ticker neu laden">🔄 neu laden</button>
     </div>
 
@@ -423,12 +423,12 @@
       // Beim Start: nichts ausgewählt. Falls gespeichert, wird die
       // letzte Auswahl aus dem localStorage wiederhergestellt
       // (überlebt Tab schließen & Browser-Neustart, ohne Cookie-Alarm).
-      let state = { cat: null, grp: null, entry: null, noFilter: false, asvHeute: false, search: false, fremd: null, lastGrpByCat: {}, lastEntryByGrp: {} };
+      let state = { cat: null, grp: null, entry: null, noFilter: false, asvHeute: false, search: false, fremd: null, lastCat: null, lastGrpByCat: {}, lastEntryByGrp: {} };
       const STORE_KEY = "asv-dachau-auswahl-v1";
       try {
         const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
         if (saved && typeof saved === "object") state = Object.assign(
-          { cat: null, grp: null, entry: null, noFilter: false, asvHeute: false, search: false, fremd: null, lastGrpByCat: {}, lastEntryByGrp: {} }, saved
+          { cat: null, grp: null, entry: null, noFilter: false, asvHeute: false, search: false, fremd: null, lastCat: null, lastGrpByCat: {}, lastEntryByGrp: {} }, saved
         );
       } catch (e) { /* ignorieren */ }
       // Such-Modus nie als Startzustand wiederherstellen (Eingabefeld
@@ -604,20 +604,15 @@
       // Ohne ASV-Filter: nur der BVV-Ticker mit allen Spielen
       const noFilterView = document.getElementById("nofilterview");
       const nfFrame = document.getElementById("nfFrame");
-      const floatPin = document.getElementById("floatPin");
       const floatReload = document.getElementById("floatReload");
       const floatBar = document.querySelector(".floatbar");
-      // Schwebende Knöpfe: nur in der Ticker-Ansicht sinnvoll
+      // Schwebender Knopf: nur in der Ticker-Ansicht sinnvoll
       function updateFloatbar() {
         const tickerActive = !state.search && (state.noFilter
           || ((state.entry !== null || !!state.fremd) && (state.tab || "ticker") === "ticker"));
         floatBar.style.display = tickerActive ? "flex" : "none";
       }
-      // Schwebende Knöpfe wirken auf die gerade aktive Ansicht
-      floatPin.onclick = () => {
-        const act = document.querySelector(".entry.active");
-        if (act && act._pinToggle) act._pinToggle();
-      };
+      // Schwebender Knopf wirkt auf die gerade aktive Ansicht
       floatReload.onclick = () => {
         const act = document.querySelector(".entry.active");
         if (act && act._reload) act._reload();
@@ -724,6 +719,19 @@
           state.asvHeute = false;
           state.search = false;
           state.fremd = null; // fremde Mannschaft abwählen
+          // Letzten Bereich + Mannschaft direkt wieder vorwählen
+          // (Nutzer-Wunsch 31.10.): "ASV Team" zeigt sofort die letzte
+          // Auswahl, statt dass man erst Herren/Damen/Jugend anklicken
+          // muss. Grp/Entry kommen aus den last*-Maps.
+          if (state.cat === null && state.lastCat) {
+            state.cat = state.lastCat;
+            const g = state.lastGrpByCat[state.cat];
+            if (g && grpsOfCat(state.cat).includes(g)) {
+              state.grp = g;
+              const en = state.lastEntryByGrp[state.cat + "|" + g];
+              if (en !== null && en !== undefined && CONFIG[en] && CONFIG[en].cat === state.cat && CONFIG[en].grp === g) state.entry = en;
+            }
+          }
           renderAll(); // Menü bleibt offen -> Mannschaft wie gewohnt wählen
         }));
         modeRow.appendChild(chip("alle ASV Spiele heute", !!state.asvHeute, () => {
@@ -763,6 +771,7 @@
             state.search = false;
             state.fremd = null;
             state.cat = c.id;
+            state.lastCat = c.id; // fuer "ASV Team"-Klick: letzten Bereich vorwahlen
             const g = state.lastGrpByCat[c.id];
             state.grp = (g && grpsOfCat(c.id).includes(g)) ? g : null;
             state.entry = state.grp !== null ? (state.lastEntryByGrp[c.id + "|" + state.grp] ?? null) : null;
@@ -1058,26 +1067,22 @@
           const ergFertig = (m.sp1 !== undefined && m.sp2 !== undefined) ? '<span class="erg">' + m.sp1 + ":" + m.sp2 + '</span>' : "";
           const card = document.createElement("button");
           card.className = "heutecard" + (live ? " live" : "") + (fertig ? " done" : "") + (pinAktiv ? " pinned" : "") + (!live && !fertig ? " inaktiv" : "");
-          // Badge: LIVE mit pulsierendem Punkt; geplant mit Datum +
-          // Uhrzeit (nicht-heutige zeigen den Wochentag, damit man
-          // Vergangenheit/Zukunft einordnen kann). Beendete Spiele:
-          // Paarung zuerst, dahinter ✅ + Datum und das Satz-Ergebnis
-          // AM ENDE – ohne "Ticker ansehen"-Text (Nutzer-Wunsch 31.10.).
-          // 📌-Nadel nur bei klickbaren Spielen (LIVE/beendet) – geplante
-          // Spiele haben noch keine Detail-URL (Nutzer-Wunsch 31.10.).
+          // Karten-Reihenfolge (Nutzer-Wunsch 31.10.): Icon - Datum -
+          // Paarung - Ergebnis - 📌-Nadel. Die Nadel steht GANZ AM ENDE
+          // und nur bei klickbaren Spielen (LIVE/beendet) – geplante
+          // Spiele haben noch keine Detail-URL. Geplante Spiele
+          // bekommen "startet am:" vor Icon + Datum (Nutzer-Wunsch).
           const badge = live
             ? '<span class="livedot"></span><span class="hc-zeit">LIVE</span>'
             : fertig
-              ? "" // beendet: kein Badge vor der Paarung
-              : '<span class="hc-zeit">📅 ' + (istHeute
-                  ? "Heute · " + (zeit === "00:00" ? "–" : zeit)
+              ? '<span class="hc-zeit">✅ ' + (istHeute ? "heute" : tagDatum) + "</span>"
+              : '<span class="hc-zeit">startet am: 📅 ' + (istHeute
+                  ? "heute · " + (zeit === "00:00" ? "–" : zeit)
                   : tagDatum + (zeit === "00:00" ? "" : " · " + zeit)) + "</span>";
-          const ende = fertig
-            ? ' <span class="hc-zeit">✅ ' + (istHeute ? "heute" : tagDatum) + "</span>" + ergFertig
-            : "";
           const paarung =
-            '<span><b' + (m.t1r && m.t1r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t1r) + '</b> – <b' + (m.t2r && m.t2r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t2r) + '</b>' + ((live || fertig) ? " 📌" : "") + '</span>';
-          card.innerHTML = badge + paarung + ende;
+            '<span><b' + (m.t1r && m.t1r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t1r) + '</b> – <b' + (m.t2r && m.t2r.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(m.t2r) + '</b></span>';
+          const ergHtml = fertig ? ergFertig : "";
+          card.innerHTML = badge + paarung + (ergHtml ? " " + ergHtml : "") + ((live || fertig) ? ' <span class="hc-pin">📌</span>' : "");
           if (live || fertig) {
             card.title = live
               ? "Dieses Spiel läuft gerade – Live-Ticker öffnen (anpinnen)"
@@ -1232,10 +1237,17 @@
         fremdLast = [f].concat(fremdLast.filter((x) => (x.series + "|" + x.teamId) !== key)).slice(0, 3);
         try { localStorage.setItem(FAV_KEY, JSON.stringify(fremdLast)); } catch (e) { }
       }
+      let favOpen = false; // Favoriten-Liste auf/zu (Nutzer-Wunsch 31.10.)
+      favLabel.onclick = (ev) => {
+        ev.stopPropagation(); // Klick im Menue oeffnet/schliesst nur die Liste
+        favOpen = !favOpen;
+        renderFavoritenRow();
+      };
       function renderFavoritenRow() {
         favLabel.style.display = fremdLast.length ? "" : "none";
-        favRow.style.display = fremdLast.length ? "" : "none";
-        if (!fremdLast.length) return;
+        favRow.style.display = (fremdLast.length && favOpen) ? "" : "none";
+        favLabel.textContent = "🕘 Zuletzt gesucht " + (favOpen ? "▴" : "▾");
+        if (!fremdLast.length || !favOpen) return;
         favRow.innerHTML = "";
         fremdLast.forEach((f) => {
           const aktiv = !!(state.fremd && state.fremd.series === f.series && state.fremd.teamId === f.teamId);
@@ -1312,7 +1324,7 @@
             + '<b' + (name.includes("ASV Dachau") ? ' class="asv"' : "") + '>' + escHtml(name) + '</b>'
             + '<span class="count">· ' + ms.length + (ms.length === 1 ? " Spiel" : " Spiele") + '</span>'
             + '<span class="chev">▶</span>';
-          head.title = "Mannschaft auswählen: Ticker, Spielplan und Tabelle dieser Mannschaft zeigen";
+          head.title = "Mannschaft auswählen: Live-Ticker dieser Mannschaft zeigen";
           head.onclick = () => {
             if (t) {
               // ASV-Team: auf den gewohnten Mannschaftsfilter umleiten
@@ -1431,12 +1443,6 @@
         renderSucheRow();
         showEntry();
         renderPlaceholder();
-        // 📌-Knopf zeigt an, ob die aktive Ansicht einen Pin hat
-        const hasPin = state.noFilter
-          ? !!pinOf("nofilter")
-          : (state.fremd ? !!pinOf(fremdPinKey(state.fremd))
-            : (state.entry !== null ? !!pinOf(state.entry) : false));
-        floatPin.classList.toggle("active", hasPin);
         updateFloatbar();
         saveState();
       }
