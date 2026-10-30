@@ -193,11 +193,12 @@
       .hc-geit b { font-weight: 600; color: #374151; }
       .hc-zeit2 { color: #6b7280; font-size: .66rem; }
       .heutecard:hover { border-color: #2563eb; background: #eff6ff; }
-      .heutecard.pinned { border-color: #1e3a8a; background: #dbeafe; outline: 2px solid #1e3a8a; }
+      .heutecard.pinned { border-color: #1e3a8a; background: #dbeafe; }
       .heutecard .hc-zeit { font-weight: 700; color: #6b7280; font-size: .72rem; }
       .heutecard .hc-pin { font-size: .8rem; }
       .heutecard b { font-weight: 600; color: #374151; }
       .heutecard b.asv { color: #1e3a8a; }
+
       /* Noch nicht gestartetes Spiel: Karte nur Anzeige, nicht klickbar
          (es gibt noch keine Detail-URL im Ticker-Backend) */
       .heutecard.inaktiv { cursor: default; }
@@ -398,6 +399,7 @@
         { cat: "h", grp: "Herren 8", team: "ASV Dachau VIII", league: "Kreisliga 3 Männer", wettbewerb: "e4d55a45-caac-4452-9aee-9c3491273b78", teamId: "84934bb5-1eed-429f-b270-82cdc0b9b319" },
 
         // ---------------- DAMEN ----------------
+
         { cat: "d", grp: "Damen 1", team: "ASV Dachau", league: "Dritte Liga Ost Frauen", wettbewerb: "ea2fc469-c865-4b9b-a457-eb9b4debced0", teamId: "d0bb17c3-c076-41a7-b06a-78d347c26e5e" },
         { cat: "d", grp: "Damen 2", team: "ASV Dachau II", league: "Landesliga Süd-West Frauen", wettbewerb: "c6bfb1ea-ab19-43cc-b864-ae48865c3c22", teamId: "368c5a41-6a3a-4b95-8371-aa78ef160255" },
         { cat: "d", grp: "Damen 3", team: "ASV Dachau III", league: "Bezirksliga West Frauen", wettbewerb: "00572b76-b0a6-4730-9b69-965ef2c22335", teamId: "d9de5760-0b7b-4130-9f14-e47fd55e1516" },
@@ -598,6 +600,7 @@
       // ---------------- Auswahl: klassische Chip-Reihen im Menü ----------------
       const menuBtn = document.getElementById("menuBtn");
       const menuBtnLabel = document.getElementById("menuBtnLabel");
+
       const menuPanel = document.getElementById("menuPanel");
       const tabRow = document.getElementById("tabRow");
       // Menü beim ersten Besuch ohne Auswahl automatisch öffnen
@@ -626,7 +629,8 @@
       // Intro-Punkte sind antippbar (Nutzer-Wunsch 31.10.): Direkt in den
       // jeweiligen Modus springen – gleiche Logik wie die Modus-Chips in
       // renderModeRow().
-      document.getElementById("introP-asvteam").onclick = () => {
+      document.getElementById("introP-asvteam").onclick = (ev) => {
+        ev.stopPropagation(); // sonst schliesst der document-Klick-Listener das Menü wieder
         schliesseIntro();
         state.noFilter = false;
         state.asvHeute = false;
@@ -644,7 +648,8 @@
         }
         renderAll();
       };
-      document.getElementById("introP-heute").onclick = () => {
+      document.getElementById("introP-heute").onclick = (ev) => {
+        ev.stopPropagation(); // sonst schliesst der document-Klick-Listener das Menü wieder
         schliesseIntro();
         state.noFilter = false;
         state.asvHeute = true;
@@ -654,7 +659,8 @@
         menuOpen = false;
         renderAll();
       };
-      document.getElementById("introP-suche").onclick = () => {
+      document.getElementById("introP-suche").onclick = (ev) => {
+        ev.stopPropagation(); // sonst schliesst der document-Klick-Listener das Menü wieder
         schliesseIntro();
         state.noFilter = false;
         state.asvHeute = false;
@@ -663,7 +669,8 @@
         menuOpen = true;
         renderAll();
       };
-      document.getElementById("introP-nofilter").onclick = () => {
+      document.getElementById("introP-nofilter").onclick = (ev) => {
+        ev.stopPropagation(); // sonst schliesst der document-Klick-Listener das Menü wieder
         schliesseIntro();
         state.noFilter = true;
         state.asvHeute = false;
@@ -794,6 +801,7 @@
           state.asvHeute = false;
           state.search = false;
           state.fremd = null;
+
           state.cat = null; state.grp = null; state.entry = null;
           menuOpen = false;
           renderAll();
@@ -994,6 +1002,7 @@
         tabs.forEach((tb) => {
           tabRow.appendChild(chip(tb.label, state.tab === tb.id, () => {
             state.tab = tb.id;
+
             showEntry();
             saveState();
             renderAll();
@@ -1148,15 +1157,16 @@
             card.onclick = () => {
               state.tab = "ticker";
               saveState();
-              renderAll();
-              // Toggle (Nutzer-Wunsch 31.10.): bereits angepinnt = Pin
-              // entfernen, sonst Spiel anpinnen
+              // Toggle (Nutzer-Wunsch 31.10./31.10.-Fix): Pin FIRST
+              // aendern, DANACH renderAll – sonst rendert die Karte mit
+              // dem alten Pin-Stand (bleibt weiss bzw. toggelt falsch).
               if (pinAktiv) {
                 if (fr) { if (t._pinDel) t._pinDel(); }
                 else if (t.el && t.el._pinDel) t.el._pinDel();
               } else {
                 pinZu(url);
               }
+              renderAll();
             };
           } else {
             card.title = "Klickbar, sobald das Spiel im Ticker startet";
@@ -1193,6 +1203,7 @@
         // > erster Treffer. Wichtig fuer die Jugend: Viele Teams heissen
         // identisch ("ASV Dachau II" = U13 II UND U16 w II), Includes
         // allein greift da das falsche Team (31.10.).
+
         return treffer.find((e) => tid && e.teamId === tid)
           || treffer.find((e) => asvName === e.team)
           || treffer.find((e) => asvName && asvName.includes(e.team))
@@ -1251,11 +1262,12 @@
                 rememberEntry(t.cat, t.grp, t.idx);
                 state.tab = "ticker";
                 saveState();
-                renderAll();
-                // Toggle (31.10.): bereits angepinnt = Pin entfernen
+                // Toggle (31.10.-Fix): Pin VOR renderAll aendern, sonst
+                // rendert die Heute-Karte mit altem Pin-Stand (weiss).
                 const u = "https://bvv.sams-ticker.de/detail/" + m.id;
                 if (t.el && pinOf(t.idx) === u && t.el._pinDel) t.el._pinDel();
                 else if (t.el && t.el._pinTo) t.el._pinTo(u);
+                renderAll();
               };
             } else {
               card.title = fertig ? "Beendet" : "Klickbar, sobald der Ticker zum Spiel angelegt ist";
@@ -1392,6 +1404,7 @@
           return a[1].name.localeCompare(b[1].name, "de", { numeric: true });
         });
         sortiert.slice(0, 50).forEach(([k, tw]) => {
+
           const name = tw.name;
           const ms = tw.ms;
           const live = ms.some((m) => m.an && !m.fi);
@@ -1592,6 +1605,7 @@
       setInterval(refreshTickerIndex, 10 * 60 * 1000);
 
       // ---------------- Fallback, falls Einbetten gesperrt ----------------
+
       setTimeout(() => {
         document.querySelectorAll(".ticker-frame").forEach((f) => {
           try { if (f.contentWindow === null) f.parentElement.querySelector(".fallback").style.display = "block"; }
