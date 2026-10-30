@@ -193,7 +193,7 @@
       .hc-geit b { font-weight: 600; color: #374151; }
       .hc-zeit2 { color: #6b7280; font-size: .66rem; }
       .heutecard:hover { border-color: #2563eb; background: #eff6ff; }
-      .heutecard.pinned { border-color: #1e3a8a; background: #dbeafe; }
+      .heutecard.pinned { border-color: #1e3a8a; background: #bfdbfe; }
       .heutecard .hc-zeit { font-weight: 700; color: #6b7280; font-size: .72rem; }
       .heutecard .hc-pin { font-size: .8rem; }
       .heutecard b { font-weight: 600; color: #374151; }
@@ -208,6 +208,11 @@
       .heutecard.done b { color: #374151; }
       .heutecard.done b.asv { color: #1e3a8a; }
       .heutecard.done .erg { font-weight: 700; color: #111827; font-size: .78rem; }
+      /* Gepinnt gewinnt IMMER (auch gegen .done/.inaktiv): kräftig blau */
+      .heutecard.done.pinned, .heutecard.live.pinned, .heutecard.inaktiv.pinned {
+        border-color: #1e3a8a; background: #bfdbfe;
+      }
+      .heutecard.done.pinned b, .heutecard.done.pinned .hc-status { color: #1f2937; }
       /* LIVE-Karte seit 31.10.: weiss wie geplante Karten, nur der
          LIVE-Badge (pulsierender Punkt + Text) ist rot. Angepinnt
          (auch LIVE): blauer Ring + hellblauer Grund. */
@@ -1631,4 +1636,3 @@
     </script>
   </body>
 </html>
-
