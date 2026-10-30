@@ -86,8 +86,6 @@
         border-radius: 10px; padding: .45rem; font-size: .82rem; cursor: pointer;
       }
       .rowlabel2 { font-size: .65rem; color: #9ca3af; text-transform: uppercase; letter-spacing: .06em; margin: .2rem 0 .35rem; }
-      #favLabel { cursor: pointer; }
-      #favLabel:hover { color: #1e3a8a; }
 
       /* Mittiger Menü-Knopf, Menü blendet ÜBER den Inhalt */
       .menubtn {
@@ -237,8 +235,8 @@
           <div class="rowlabel2">Ansicht</div>
           <!-- Zeile 0: Modus-Wahl (ersetzt die frueheren Fuss-Buttons) -->
           <div class="filterrow" id="modeRow"></div>
-          <!-- Zuletzt gesuchte Mannschaften (max. 3): Liste klappt
-               nur auf Klick auf die Zeile auf (Nutzer-Wunsch 31.10.) -->
+          <!-- Zuletzt gesuchte Mannschaften (max. 3): nur im Such-Modus
+               sichtbar (Nutzer-Wunsch 31.10., keine dauerhafte Zeile) -->
           <div class="rowlabel2" id="favLabel" style="display:none">🕘 Zuletzt gesucht ▾</div>
           <div class="filterrow" id="favRow" style="display:none"></div>
           <div class="rowlabel2" id="teamRowsLabel">Mannschaft</div>
@@ -1120,7 +1118,15 @@
         const treffer = CONFIG.filter((e) => e.wettbewerb === m.series);
         if (!treffer.length) return null;
         const asvName = (m.t1r && m.t1r.includes("ASV Dachau")) ? m.t1r : m.t2r;
-        return treffer.find((e) => asvName && asvName.includes(e.team)) || treffer[0];
+        const tid = (m.t1r && m.t1r.includes("ASV Dachau")) ? m.t1i : m.t2i;
+        // Reihenfolge: Team-UUID (sicherst) > exakter Name > Name enthaelt
+        // > erster Treffer. Wichtig fuer die Jugend: Viele Teams heissen
+        // identisch ("ASV Dachau II" = U13 II UND U16 w II), Includes
+        // allein greift da das falsche Team (31.10.).
+        return treffer.find((e) => tid && e.teamId === tid)
+          || treffer.find((e) => asvName === e.team)
+          || treffer.find((e) => asvName && asvName.includes(e.team))
+          || treffer[0];
       }
       function renderAsvHeuteRow() {
         asvHeuteRow.innerHTML = "";
@@ -1224,9 +1230,9 @@
           || ms[0];
         return { series: ref.series, teamId: (ref.t1r === name ? ref.t1i : ref.t2i) || "" };
       }
-      // ---------------- Zuletzt gewaehlte Mannschaften ----------------
+      // ---------------- Zuletzt gesuchte Mannschaften ----------------
       // Max. 3 zuletzt angeklickte (Such-)Mannschaften als schnelle
-      // Auswahl-Buttons im Menue ("Favoriten", Nutzer-Wunsch 31.10.).
+      // Auswahl-Buttons - NUR im Such-Modus sichtbar (Nutzer-Wunsch 31.10.).
       const FAV_KEY = "asvFremdLast-v1";
       let fremdLast = [];
       try { fremdLast = JSON.parse(localStorage.getItem(FAV_KEY) || "[]") || []; } catch (e) { fremdLast = []; }
@@ -1237,17 +1243,13 @@
         fremdLast = [f].concat(fremdLast.filter((x) => (x.series + "|" + x.teamId) !== key)).slice(0, 3);
         try { localStorage.setItem(FAV_KEY, JSON.stringify(fremdLast)); } catch (e) { }
       }
-      let favOpen = false; // Favoriten-Liste auf/zu (Nutzer-Wunsch 31.10.)
-      favLabel.onclick = (ev) => {
-        ev.stopPropagation(); // Klick im Menue oeffnet/schliesst nur die Liste
-        favOpen = !favOpen;
-        renderFavoritenRow();
-      };
       function renderFavoritenRow() {
-        favLabel.style.display = fremdLast.length ? "" : "none";
-        favRow.style.display = (fremdLast.length && favOpen) ? "" : "none";
-        favLabel.textContent = "🕘 Zuletzt gesucht " + (favOpen ? "▴" : "▾");
-        if (!fremdLast.length || !favOpen) return;
+        // Erscheint nur, wenn der Such-Modus aktiv ist (state.search)
+        const zeig = !!state.search && fremdLast.length > 0;
+        favLabel.style.display = zeig ? "" : "none";
+        favRow.style.display = zeig ? "" : "none";
+        favLabel.textContent = "🕘 Zuletzt gesucht";
+        if (!zeig) return;
         favRow.innerHTML = "";
         fremdLast.forEach((f) => {
           const aktiv = !!(state.fremd && state.fremd.series === f.series && state.fremd.teamId === f.teamId);
@@ -1290,32 +1292,43 @@
           fussEl.textContent = "Keine Treffer im Zeitfenster (ca. ±7 Tage). Tipp: nur den Vereinsnamen ohne Zusatz wie „II“ probieren.";
           return;
         }
-        // Nach MANNSCHAFT gruppieren: eine Karte pro Team (Nutzer-Wunsch
-        // 30.10.). Spiel mit zwei Treffern (Mauerstetten vs.
-        // Mauerstetten II) steht sinnvollerweise in beiden Gruppen.
-        const teams = new Map(); // Anzeigename -> Spiele[]
+        // Nach MANNSCHAFT gruppieren - Schluessel ist die Team-UUID
+        // (t1i/t2i), NICHT der Anzeigename: Viele Teams heissen im
+        // Backend identisch ("ASV Dachau II" = Herren 2, Damen 2, U13 II,
+        // U16 w II, ...). Erst UUID-Gruppierung zeigt JEDES Team als
+        // eigene Karte (31.10., vorher verschmolzenen 22 statt 38).
+        // Ohne UUID (Platzhalter) Fallback auf den Namen.
+        const teams = new Map(); // Key -> { name, ms }
         spiele.forEach((m) => {
           if (m.t1 && m.t1.includes(norm)) {
-            if (!teams.has(m.t1r)) teams.set(m.t1r, []);
-            teams.get(m.t1r).push(m);
+            const k = m.t1i || "n|" + m.t1r;
+            if (!teams.has(k)) teams.set(k, { name: m.t1r, ms: [] });
+            teams.get(k).ms.push(m);
           }
           if (m.t2 && m.t2.includes(norm)) {
-            if (!teams.has(m.t2r)) teams.set(m.t2r, []);
-            teams.get(m.t2r).push(m);
+            const k = m.t2i || "n|" + m.t2r;
+            if (!teams.has(k)) teams.set(k, { name: m.t2r, ms: [] });
+            teams.get(k).ms.push(m);
           }
         });
         // Sortierung: Mannschaften mit LIVE-Spiel zuerst, danach alphabetisch
         const sortiert = [...teams.entries()].sort((a, b) => {
-          const liveA = a[1].some((m) => m.an && !m.fi) ? 0 : 1;
-          const liveB = b[1].some((m) => m.an && !m.fi) ? 0 : 1;
+          const liveA = a[1].ms.some((m) => m.an && !m.fi) ? 0 : 1;
+          const liveB = b[1].ms.some((m) => m.an && !m.fi) ? 0 : 1;
           if (liveA !== liveB) return liveA - liveB;
-          return a[0].localeCompare(b[0], "de", { numeric: true });
+          return a[1].name.localeCompare(b[1].name, "de", { numeric: true });
         });
-        sortiert.slice(0, 30).forEach(([name, ms]) => {
+        sortiert.slice(0, 50).forEach(([, tw]) => {
+          const name = tw.name;
+          const ms = tw.ms;
           const live = ms.some((m) => m.an && !m.fi);
           const t = configForMatch(ms[0]); // ASV? -> Klasse-Label (grp)
           const kt = t ? null : teamKontext(name, ms);
-          const klasse = t ? t.grp : katFromLiga(kt.series);
+          // Jugend m/w anhaengen, damit gleichnamige Teams unterscheidbar
+          // bleiben ("U16 m · ASV Dachau II" vs "U16 w · ASV Dachau II")
+          const klasse = t
+            ? t.grp + (t.cat === "jm" ? " m" : (t.cat === "jw" ? " w" : ""))
+            : katFromLiga(kt.series);
           const head = document.createElement("button");
           head.className = "asvcard" + (live ? " live" : "");
           head.innerHTML =
@@ -1351,9 +1364,9 @@
           };
           resEl.appendChild(head);
         });
-        const tmCount = Math.min(sortiert.length, 30);
+        const tmCount = Math.min(sortiert.length, 50);
         fussEl.textContent = tmCount + (tmCount === 1 ? " Mannschaft" : " Mannschaften")
-          + (sortiert.length > 30 ? " (von " + sortiert.length + " – bitte genauer suchen)" : "")
+          + (sortiert.length > 50 ? " (von " + sortiert.length + " – bitte genauer suchen)" : "")
           + " · " + spiele.length + (spiele.length === 1 ? " Spiel" : " Spiele")
           + " · Zeitfenster: ca. 7 Tage zurück bis 7 Tage voraus";
       }
