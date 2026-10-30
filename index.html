@@ -65,21 +65,9 @@
       .asvcard .chev { margin-left: auto; color: #9ca3af; font-size: .75rem; }
       /* Such-Trefferliste im Menü: bei langen Listen scrollbar */
       .suchcards { max-height: 45vh; overflow-y: auto; }
-      /* Pin-Hinweis: schmales blaues Chip, NUR sichtbar, wenn ein Pin
-         aktiv ist (Pin-Zeilen/URL-Eingabe entfernt, Nutzer-Wunsch 31.10.:
-         entfernen laeuft ueber Toggle-Klick auf die Karte ODER ✕-Chip) */
-      .pinchip {
-        display: none; align-items: center; justify-content: space-between; gap: .5rem;
-        background: #dbeafe; border: 1px solid #93c5fd; border-radius: 10px;
-        padding: .45rem .7rem; margin-bottom: .5rem;
-        font-size: .8rem; color: #1e3a8a;
-      }
-      .pinchip.show { display: flex; }
-      .pinchip button {
-        border: 1px solid #93c5fd; background: #fff; border-radius: 8px;
-        padding: .25rem .55rem; font-size: .75rem; cursor: pointer; white-space: nowrap;
-        color: #1e3a8a; font-weight: 600;
-      }
+      /* Pin-Anzeige komplett ohne Extra-Zeile (31.10.): Die angepinnte
+         Karte selbst ist blau hinterlegt, erneutes Antippen entfernt
+         den Pin – deshalb gibt es KEINE Pin-Leiste/Chip mehr. */
       .footer {
         text-align: center; font-size: .75rem; color: #9ca3af;
         margin: 1rem 0 4.5rem;
@@ -251,8 +239,9 @@
       .intropunkt {
         display: flex; align-items: flex-start; gap: .55rem; text-align: left;
         padding: .5rem .55rem; border: 1px solid #e5e7eb; border-radius: 10px;
-        margin-bottom: .45rem; background: #f9fafb;
+        margin-bottom: .45rem; background: #f9fafb; cursor: pointer;
       }
+      .intropunkt:hover { border-color: #2563eb; background: #eff6ff; }
       .intropunkt .ic { font-size: 1.05rem; line-height: 1.2; flex-shrink: 0; }
       .intropunkt b { display: block; font-size: .82rem; color: #111827; }
       .intropunkt span { font-size: .74rem; color: #6b7280; }
@@ -318,7 +307,6 @@
     <!-- Ohne ASV-Filter: nur der BVV-Ticker mit allen Spielen -->
     <div class="entry" id="nofilterview">
       <div class="card wide">
-        <div class="pinchip" id="nfPinChip"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button id="nfPinChipClear">✕ entfernen</button></div>
         <iframe class="ticker-frame" id="nfFrame" title="BVV Live-Ticker – Alle Spiele" allow="fullscreen"></iframe>
         <p class="fallback">
           Der Ticker lässt sich hier nicht direkt einbetten –
@@ -334,23 +322,23 @@
         <img class="intrologo" src="logo_c.svg" alt="ASV Dachau Volleys" />
         <h2>Willkommen beim ASV Ticker!</h2>
         <p class="unter">Spielpläne, Tabellen &amp; Live-Ticker des ASV Dachau</p>
-        <div class="intropunkt">
+        <div class="intropunkt" id="introP-asvteam">
           <span class="ic">🏐</span>
           <div><b>„ASV Team"</b><span>Eigene Mannschaft wählen: Live-Ticker, Spielplan, Tabelle</span></div>
         </div>
-        <div class="intropunkt">
+        <div class="intropunkt" id="introP-heute">
           <span class="ic">🔥</span>
           <div><b>„alle ASV Spiele heute"</b><span>Alle Dachau-Spiele des Tages auf einen Blick – im Ticker aufrufbar</span></div>
         </div>
-        <div class="intropunkt">
+        <div class="intropunkt" id="introP-suche">
           <span class="ic">🔍</span>
           <div><b>„Suche"</b><span>Jede BVV-Mannschaft finden und deren Ticker anpinnen</span></div>
         </div>
-        <div class="intropunkt">
+        <div class="intropunkt" id="introP-nofilter">
           <span class="ic">🌐</span>
           <div><b>„ohne Filter"</b><span>Der komplette BVV-Ticker</span></div>
         </div>
-        <div class="introfenster">ℹ️ Spiele werden ca. 7 Tage im Voraus und 7 Tage zurück angezeigt.</div>
+        <div class="introfenster">ℹ️ Spiele werden ca. 7 Tage im Voraus und 7 Tage zurück angezeigt.<br />💡 Die vier Punkte oben sind antippbar – du springst direkt in die Ansicht.</div>
         <button class="introlos" id="introLosBtn">Los geht's!</button>
       </div>
     </div>
@@ -528,7 +516,6 @@
         el.innerHTML = `
           <div class="tabpane" id="e-${i}-ticker">
             <div class="card wide">
-              <div class="pinchip"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button class="pinchipclear">✕ entfernen</button></div>
               <iframe class="ticker-frame" title="BVV Live-Ticker ${t.league}" allow="fullscreen"></iframe>
               <p class="fallback">
                 Der Ticker lässt sich hier nicht direkt einbetten –
@@ -581,26 +568,18 @@
         // Pin auf dieses Spiel setzen und den Ticker darauf umschalten
         el._pinTo = (url) => {
           setPin(t.idx, url);
-          setPinHint();
           const f = el.querySelector(".ticker-frame");
           f.src = "about:blank";
           setTimeout(() => { f.src = url; }, 50);
         };
-        // Pin entfernen (Toggle-Klick auf die angepinnte Karte oder ✕-Chip):
-        // Ticker zeigt wieder die Liga-Uebersicht
+        // Pin entfernen (Toggle-Klick auf die angepinnte Karte): Ticker
+        // zeigt wieder die Liga-Uebersicht, Karte wird wieder weiss
         el._pinDel = () => {
           setPin(t.idx, "");
-          setPinHint();
           const f = el.querySelector(".ticker-frame");
           f.src = "about:blank";
           setTimeout(() => { f.src = targetSrc(t); }, 50);
         };
-        // ✕-Chip: nur sichtbar, wenn ein Pin aktiv ist (Pin-Zeilen weg, 31.10.)
-        const setPinHint = () => {
-          el.querySelector(".pinchip").classList.toggle("show", !!pinOf(t.idx));
-        };
-        setPinHint();
-        el.querySelector(".pinchipclear").onclick = () => el._pinDel();
       });
 
       // Kurz-Label für Stufe 3: "ASV Dachau III" -> "ASV III" usw.
@@ -644,6 +623,56 @@
       }
       document.getElementById("introBtn").onclick = zeigeIntro;
       document.getElementById("introLosBtn").onclick = schliesseIntro;
+      // Intro-Punkte sind antippbar (Nutzer-Wunsch 31.10.): Direkt in den
+      // jeweiligen Modus springen – gleiche Logik wie die Modus-Chips in
+      // renderModeRow().
+      document.getElementById("introP-asvteam").onclick = () => {
+        schliesseIntro();
+        state.noFilter = false;
+        state.asvHeute = false;
+        state.search = false;
+        state.fremd = null;
+        // Letzten Bereich + Mannschaft vorwahlen wie beim "ASV Team"-Chip
+        if (state.cat === null && state.lastCat) {
+          state.cat = state.lastCat;
+          const g = state.lastGrpByCat[state.cat];
+          if (g && grpsOfCat(state.cat).includes(g)) {
+            state.grp = g;
+            const en = state.lastEntryByGrp[state.cat + "|" + g];
+            if (en !== null && en !== undefined && CONFIG[en] && CONFIG[en].cat === state.cat && CONFIG[en].grp === g) state.entry = en;
+          }
+        }
+        renderAll();
+      };
+      document.getElementById("introP-heute").onclick = () => {
+        schliesseIntro();
+        state.noFilter = false;
+        state.asvHeute = true;
+        state.search = false;
+        state.fremd = null;
+        state.tab = "ticker";
+        menuOpen = false;
+        renderAll();
+      };
+      document.getElementById("introP-suche").onclick = () => {
+        schliesseIntro();
+        state.noFilter = false;
+        state.asvHeute = false;
+        state.search = true;
+        suchFokus = true;
+        menuOpen = true;
+        renderAll();
+      };
+      document.getElementById("introP-nofilter").onclick = () => {
+        schliesseIntro();
+        state.noFilter = true;
+        state.asvHeute = false;
+        state.search = false;
+        state.fremd = null;
+        state.cat = null; state.grp = null; state.entry = null;
+        menuOpen = false;
+        renderAll();
+      };
       try { if (!localStorage.getItem(INTRO_KEY)) zeigeIntro(); } catch (e) { zeigeIntro(); }
 
       // Ohne ASV-Filter: nur der BVV-Ticker mit allen Spielen
@@ -670,20 +699,10 @@
       };
 
       // Pin für die "Ohne ASV-Filter"-Ansicht (eigener Speicherplatz):
-      // ohne URL-Eingabe koennen hier nur ALT-Pins liegen – der ✕-Chip
-      // blendet nur ein, wenn tatsaechlich einer aktiv ist (31.10.)
+      // keine Pin-Leiste mehr (31.10.) – Alt-Pins laufen einfach mit,
+      // der Ticker oeffnet sie direkt, Chip/Toggle gibt es hier nicht.
       const NF_URL = "https://bvv.sams-ticker.de/";
       function nfTargetSrc() { return pinOf("nofilter") || NF_URL; }
-      function nfSetPinHint() {
-        document.getElementById("nfPinChip").classList.toggle("show", !!pinOf("nofilter"));
-      }
-      nfSetPinHint();
-      document.getElementById("nfPinChipClear").onclick = () => {
-        setPin("nofilter", "");
-        nfSetPinHint();
-        nfFrame.src = "about:blank";
-        setTimeout(() => { nfFrame.src = nfTargetSrc(); }, 50);
-      };
 
       const catRow = document.getElementById("catRow");
       const grpRow = document.getElementById("grpRow");
@@ -862,7 +881,6 @@
         el.innerHTML = `
           <div class="tabpane" id="e-fremd-ticker">
             <div class="card wide">
-              <div class="pinchip"><span>📌 <b>Pin aktiv</b> – der Ticker zeigt genau dieses Spiel</span><button class="pinchipclear">✕ entfernen</button></div>
               <iframe class="ticker-frame" title="BVV Live-Ticker ${escHtml(f.liga || "")}" allow="fullscreen"></iframe>
               <p class="fallback">
                 Der Ticker lässt sich hier nicht direkt einbetten –
@@ -883,25 +901,17 @@
         };
         el._pinTo = (url) => {
           setPin(pinKey, url);
-          setPinHint();
           const fr = el.querySelector(".ticker-frame");
           fr.src = "about:blank";
           setTimeout(() => { fr.src = url; }, 50);
         };
-        // Pin entfernen (Toggle-Klick auf die angepinnte Karte oder ✕-Chip)
+        // Pin entfernen (Toggle-Klick auf die angepinnte Karte)
         el._pinDel = () => {
           setPin(pinKey, "");
-          setPinHint();
           const fr = el.querySelector(".ticker-frame");
           fr.src = "about:blank";
           setTimeout(() => { fr.src = zielSrc(); }, 50);
         };
-        // ✕-Chip: nur sichtbar, wenn ein Pin aktiv ist (Pin-Zeilen weg, 31.10.)
-        const setPinHint = () => {
-          el.querySelector(".pinchip").classList.toggle("show", !!pinOf(pinKey));
-        };
-        setPinHint();
-        el.querySelector(".pinchipclear").onclick = () => el._pinDel();
         return el;
       }
 
