@@ -952,7 +952,7 @@
           const frEl = t.querySelector(".ticker-frame");
           const src = pinOf(fremdPinKey(state.fremd)) || (TICKER_BASE + state.fremd.series);
           // Ohne Spiel im ±7-Tage-Fenster (und ohne Pin) KEIN Ticker-iframe
-          if (teamOhneSpiel(t, state.fremd) && !pinOf(fremdPinKey(state.fremd))) {
+          if (teamOhneSpiel(t, state.fremd)) {
             if (frEl.src !== "about:blank") frEl.src = "about:blank";
             frEl.style.display = "none";
           } else {
@@ -980,7 +980,7 @@
         // geladen, kein Treffer) und ohne angepinntes Spiel erscheint
         // KEIN Live-Ticker-iframe – die "keinspiel"-Zeile uebernimmt
         // die Info ueber dem Tickerbereich.
-        if (teamOhneSpiel(t, null) && !pinOf(t.idx)) {
+        if (teamOhneSpiel(t, null)) {
           if (f.src !== "about:blank") f.src = "about:blank";
           f.style.display = "none";
         } else {
@@ -1106,7 +1106,7 @@
                            : (t.el ? t.el.querySelector(".ticker-frame") : null);
           heuteRow.innerHTML = '<div class="keinspiel">ℹ️ Im Zeitraum ± 7 Tagen findet kein Spiel statt.</div>';
           heuteRow.style.display = "block";
-          if (frame && !pinAktiv) {
+          if (frame) {
             if (frame.src !== "about:blank") frame.src = "about:blank";
             frame.style.display = "none";
           }
