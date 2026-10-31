@@ -1227,10 +1227,14 @@
         } else {
           const heute = berlinTag(Date.now());
           const zeitFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
+          // Sortierung (Nutzer-Wunsch 31.10.): LIVE-Spiele IMMER vorne
+          // (wichtig bei vielen Spielen, z.B. Jugend), dann geplant
+          // aufsteigend, beendete ganz hinten.
+          const rang = (m) => (m.an && !m.fi) ? 0 : (!m.fi ? 1 : 2);
           const spiele = tickerIndex
             .filter((m) => berlinTag(m.date) === heute &&
               ((m.t1r && m.t1r.includes("ASV Dachau")) || (m.t2r && m.t2r.includes("ASV Dachau"))))
-            .sort((a, b) => a.date - b.date);
+            .sort((a, b) => rang(a) - rang(b) || a.date - b.date);
           if (!spiele.length) {
             const leer = document.createElement("div");
             leer.className = "asvcard inaktiv";
