@@ -607,7 +607,15 @@
       const tabRow = document.getElementById("tabRow");
       // Menü beim ersten Besuch ohne Auswahl automatisch öffnen
       let menuOpen = state.entry === null && !state.fremd && !state.noFilter && !state.asvHeute;
-      menuBtn.onclick = () => { menuOpen = !menuOpen; renderAll(); };
+      menuBtn.onclick = () => {
+        menuOpen = !menuOpen;
+        // Menü wieder geöffnet + fremde Mannschaft gewählt: die ganze
+        // Suche (Eingabefeld + Treffer) direkt wieder aufklappen
+        // (Nutzer-Wunsch 31.10.) – state.search wurde beim Auswählen
+        // des Teams beendet, sonst bliebe nur die Modus-Zeile sichtbar.
+        if (menuOpen && state.fremd) state.search = true;
+        renderAll();
+      };
       document.getElementById("menuCloseBtn").onclick = () => {
         menuOpen = false;
         // Die Suche läuft IM Menü: Menü schließen beendet sie und
