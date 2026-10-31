@@ -1161,7 +1161,9 @@
           const istHeute = berlinTag(m.date) === heute;
           const zeit = zeitFmt.format(new Date(m.date));
           const tagDatum = tagDatumFmt.format(new Date(m.date)); // z. B. "Sa., 31.10."
-          const ergFertig = (m.sp1 !== undefined && m.sp2 !== undefined) ? m.sp1 + ":" + m.sp2 : "";
+          // Spielstand NUR bei beendeten Spielen (Nutzer-Wunsch 31.10.):
+          // der Live-Zwischenstand im Index ist nie aktuell genug.
+          const ergFertig = (m.fi && m.sp1 !== undefined && m.sp2 !== undefined) ? m.sp1 + ":" + m.sp2 : "";
           const card = document.createElement("button");
           card.className = "heutecard" + (live ? " live" : "") + (fertig ? " done" : "") + (pinAktiv ? " pinned" : "") + (!live && !fertig ? " inaktiv" : "");
           // Karten-Design (Nutzer-Wunsch 31.10.): kompakte 3-Zeilen-Karte
