@@ -260,6 +260,12 @@
         padding: .65rem 0; cursor: pointer;
       }
       .introlos:active { background: #1d4ed8; }
+      .introshare {
+        display: block; width: 100%; margin: .55rem 0 .1rem; padding: .5rem 1rem;
+        border: 1px solid #93c5fd; border-radius: 999px; background: #fff;
+        color: #1e3a8a; font-size: .9rem; font-weight: 600; cursor: pointer;
+      }
+      .introshare:active { background: #eff6ff; }
     </style>
   </head>
   <body>
@@ -344,6 +350,7 @@
           <div><b>„ohne Filter"</b><span>Der komplette BVV-Ticker</span></div>
         </div>
         <div class="introfenster">ℹ️ Spiele werden ca. 7 Tage im Voraus und 7 Tage zurück angezeigt.<br />💡 Die vier Punkte oben sind antippbar – du springst direkt in die Ansicht.</div>
+        <button class="introshare" id="introShareBtn">🔗 App weiterempfehlen</button>
         <button class="introlos" id="introLosBtn">Los geht's!</button>
       </div>
     </div>
@@ -636,6 +643,22 @@
       }
       document.getElementById("introBtn").onclick = zeigeIntro;
       document.getElementById("introLosBtn").onclick = schliesseIntro;
+      // App weiterempfehlen: nativer Teilen-Dialog (WhatsApp & Co.),
+      // Fallback ohne Web Share API: Link in die Zwischenablage kopieren
+      document.getElementById("introShareBtn").onclick = (ev) => {
+        ev.stopPropagation();
+        const daten = { title: "ASV Ticker", text: "Spielpläne, Tabellen & Live-Ticker des ASV Dachau – jetzt alle Spiele live dabei:", url: "https://luigitare.github.io/asv-dachau-ticker/" };
+        const btn = ev.currentTarget;
+        if (navigator.share) {
+          navigator.share(daten).catch(() => {});
+        } else {
+          try {
+            navigator.clipboard.writeText(daten.url);
+            btn.textContent = "✅ Link kopiert!";
+            setTimeout(() => { btn.textContent = "🔗 App weiterempfehlen"; }, 2000);
+          } catch (e) {}
+        }
+      };
       // Intro-Punkte sind antippbar (Nutzer-Wunsch 31.10.): Direkt in den
       // jeweiligen Modus springen – gleiche Logik wie die Modus-Chips in
       // renderModeRow().
