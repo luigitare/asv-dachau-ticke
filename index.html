@@ -803,7 +803,7 @@
       function renderCatRow() {
         catRow.innerHTML = '<div class="rowlabel">1 · Bereich</div>';
         CATS.forEach((c) => {
-          catRow.appendChild(chip(c.label, state.cat === c.id, () => {
+          catRow.appendChild(chip(c.label, state.cat === c.id && !state.asvHeute, () => {
             state.noFilter = false; // ASV-Auswahl aktiv -> Normalmodus
             state.asvHeute = false;
             state.search = false;
@@ -932,6 +932,9 @@
         // des 18-MB-Tickers) – die bisherige Auswahl bleibt aber erhalten
         // und ist nach dem Zurückschalten auf „ASV Team“ sofort wieder da.
         if (state.search) return;
+        // "Alle ASV heute": zunaechst GAR kein iframe (Nutzer-Wunsch
+        // 31.10.) - der Ticker kommt erst mit der Spiel-Auswahl.
+        if (state.asvHeute) return;
         if (state.noFilter) {
           noFilterView.classList.add("active");
           const nfSrc = nfTargetSrc();
@@ -1233,6 +1236,12 @@
             leer.className = "asvcard inaktiv";
             leer.textContent = "😄 Heute spielen keine ASV-Mannschaften";
             wrap.appendChild(leer);
+          } else {
+            const hinweis = document.createElement("div");
+            hinweis.className = "suchhint";
+            hinweis.style.margin = "0 0 .3rem";
+            hinweis.textContent = "ℹ️ Nur Live- und beendete Spiele lassen sich aufrufen – geplante erst ab Spielbeginn.";
+            wrap.appendChild(hinweis);
           }
           spiele.forEach((m) => {
             const t = configForMatch(m);
