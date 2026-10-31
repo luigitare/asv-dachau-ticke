@@ -13,7 +13,7 @@
     <link rel="icon" href="logo_c.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="logo_c.png" />
     <style>
-      :root { font-family: Inter, system-ui, -apple-system, sans-serif; color: #111827; background: #f4f6f8; }
+      :root { font-size: 112.5%; font-family: Inter, system-ui, -apple-system, sans-serif; color: #111827; background: #f4f6f8; }
       * { box-sizing: border-box; }
       body { margin: 0; padding: .75rem; }
       .topbar {
@@ -781,15 +781,6 @@
           }
           renderAll(); // Menü bleibt offen -> Mannschaft wie gewohnt wählen
         }));
-        modeRow.appendChild(chip("alle ASV Spiele heute", !!state.asvHeute, () => {
-          state.noFilter = false;
-          state.asvHeute = true;
-          state.search = false;
-          state.fremd = null;
-          state.tab = "ticker"; // Spielplan/Tabelle-Tabs sind in diesem Modus weg
-          menuOpen = false;
-          renderAll();
-        }));
         modeRow.appendChild(chip("🔍 Suche", !!(state.search || state.fremd), () => {
           state.noFilter = false;
           state.asvHeute = false;
@@ -826,6 +817,17 @@
             renderAll();
           }));
         });
+        // "Alle ASV Spiele heute" gehoert in die Bereichs-Zeile
+        // (Nutzer-Wunsch 31.10.: neben Herren/Damen/Jugend m/w)
+        catRow.appendChild(chip("Alle ASV heute", !!state.asvHeute, () => {
+          state.noFilter = false;
+          state.asvHeute = true;
+          state.search = false;
+          state.fremd = null;
+          state.tab = "ticker"; // Spielplan/Tabelle-Tabs sind in diesem Modus weg
+          menuOpen = false;
+          renderAll();
+        }));
       }
 
       function renderGrpRow() {
@@ -1534,8 +1536,9 @@
         renderModeRow();
         renderFavoritenRow();
         const teamMode = !state.noFilter && !state.asvHeute && !state.search && !state.fremd;
-        teamRowsLabel.style.display = teamMode ? "" : "none";
-        catRow.style.display = teamMode ? "" : "none";
+        const bereichMode = teamMode || state.asvHeute; // Bereichs-Zeile auch im ASV-heute-Modus (aktiver Chip sichtbar)
+        teamRowsLabel.style.display = bereichMode ? "" : "none";
+        catRow.style.display = bereichMode ? "" : "none";
         grpRow.style.display = teamMode ? "" : "none";
         entryRow.style.display = teamMode ? "" : "none";
         renderCatRow();
